@@ -1225,9 +1225,9 @@
 			(uuid "97f2226b-4ed5-4ce9-bbe2-94ef778d7565")
 		)
 		(embedded_fonts no)
-		(model "${KICAD6_3DMODEL_DIR}/Fuse.3dshapes/Fuse_Littelfuse_395Series.wrl"
+		(model "${KIPRJMOD}/3dmodels/Fuse_Reomax_MTS_C2762401.step"
 			(offset
-				(xyz 0 0 0)
+				(xyz 2.54 0 0)
 			)
 			(scale
 				(xyz 1 1 1)
@@ -1697,7 +1697,7 @@
 			(uuid "3d47c331-821f-445c-b60f-0dd01f62969e")
 		)
 		(embedded_fonts no)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KIPRJMOD}/3dmodels/SW_TS-1187A_C318884.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -7242,7 +7242,7 @@
 			(uuid "ea2bf97a-98a0-4a2b-9f68-7e7ab32a8825")
 		)
 		(embedded_fonts no)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KIPRJMOD}/3dmodels/SW_TS-1187A_C318884.step"
 			(offset
 				(xyz 0 0 0)
 			)
