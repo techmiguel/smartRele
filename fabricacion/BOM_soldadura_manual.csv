@@ -1,11 +1,5 @@
 Referencia,Valor,Footprint,Nota
-J1,N / L_OUT / L_IN,"TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal","Borna 3 polos 5.08 mm (N, OUT, L)"
-F1,T500mA 250V,Fuse_Littelfuse_395Series,Fusible TR5 retardado
-RV1,07D471K,RV_Disc_D7mm_W3.4mm_P5mm,MOV 7 mm; 07D221K si la red es 110-127 V
-PS1,HLK-PM01,Converter_ACDC_Hi-Link_HLK-PMxx,Hi-Link 5V 0.6A
-K1,SRD-05VDC-SL-C,Relay_SPDT_SANYOU_SRD_Series_Form_C,Rele 5V SPDT
-C1,470uF 10V,CP_Radial_D6.3mm_P2.50mm,"Electrolitico 470uF 10V, 6.3 mm"
-U2,ESP-12F,ESP-12E,Modulo ESP-12F (pack ACEIRMC)
-J3,PROG,PinHeader_1x06_P2.54mm_Vertical,No montar: pads para puntas pogo o header temporal
+J1,N / L_OUT / L_IN,"TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal","Borna 3 polos 5.08 mm, tornillo, entrada horizontal (N, OUT, L). Montaje manual: no se encontro un equivalente verificado en JLCPCB"
+J3,PROG,PinHeader_2x03_P2.54mm_Vertical,"No montar: header 2x3 paso 2,54 mm solo para el primer grabado (IO0 TX 3V3 / RST RX GND)"
 MH1,M2,MountingHole_2.2mm_M2,"Taladro M2, mecanico, sin red"
 MH2,M2,MountingHole_2.2mm_M2,"Taladro M2, mecanico, sin red"

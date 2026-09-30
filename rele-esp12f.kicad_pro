@@ -607,6 +607,26 @@
       {
         "netclass": "MAINS",
         "pattern": "L_F"
+      },
+      {
+        "netclass": "MAINS",
+        "pattern": "/L_IN"
+      },
+      {
+        "netclass": "MAINS",
+        "pattern": "/L_OUT"
+      },
+      {
+        "netclass": "MAINS",
+        "pattern": "/N"
+      },
+      {
+        "netclass": "MAINS",
+        "pattern": "/L_F"
+      },
+      {
+        "netclass": "PWR",
+        "pattern": "/COIL_N"
       }
     ]
   },
