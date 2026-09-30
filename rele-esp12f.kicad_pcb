@@ -2163,7 +2163,7 @@
 			(at 0 -3.2 0)
 			(layer "F.SilkS")
 			(hide yes)
-			(uuid "6a6698ac-9d4a-4a0c-8501-b914ab69b8e9")
+			(uuid "73dd8e91-2e53-46c6-9223-f81ff63af359")
 			(effects
 				(font
 					(size 1 1)
@@ -2175,7 +2175,7 @@
 			(at 0 3.2 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "c28f7ad9-f97d-4193-b517-ed78f9f97e88")
+			(uuid "60c18e8c-3408-48cf-b432-4308771283a7")
 			(effects
 				(font
 					(size 1 1)
@@ -2187,7 +2187,7 @@
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "3d4d613a-5dbb-4cce-88be-809d270598cc")
+			(uuid "a9421177-5102-4ded-ac81-b59b1e9c23cc")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2198,7 +2198,7 @@
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "8736dd8a-4e2c-4e87-928d-e034d5820b2d")
+			(uuid "a7a52adb-d4cb-462e-8a01-910c7ad3e27e")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2466,7 +2466,7 @@
 	(footprint "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal"
 		(layer "F.Cu")
 		(uuid "8c7be435-0315-4cc3-aca5-c5ef2cbf3f0d")
-		(at 104 142.5)
+		(at 106.34 151)
 		(descr "Terminal Block Phoenix MKDS-1,5-3-5.08, 3 pins, pitch 5.08mm, size 15.2x9.8mm^2, drill diamater 1.3mm, pad diameter 2.6mm, see http://www.farnell.com/datasheets/100425.pdf, script-generated using https://github.com/pointhi/kicad-footprint-generator/scripts/TerminalBlock_Phoenix")
 		(tags "THT Terminal Block Phoenix MKDS-1,5-3-5.08 pitch 5.08mm size 15.2x9.8mm^2 drill 1.3mm pad 2.6mm")
 		(property "Reference" "J1"
@@ -5849,7 +5849,7 @@
 			)
 		)
 		(property "Value" "LED relay (rojo)"
-			(at 0 1.43 0)
+			(at 0.5 2.5 0)
 			(layer "F.Fab")
 			(uuid "92715fa1-021e-4cb7-8714-87a0f860aa71")
 			(effects
@@ -6797,7 +6797,7 @@
 		(descr "SMD Tactile Switch, http://www.helloxkb.com/public/images/pdf/TS-1187A-X-X-X.pdf")
 		(tags "SPST Tactile Switch")
 		(property "Reference" "SW2"
-			(at 0 4.6 0)
+			(at 0 5 0)
 			(layer "F.SilkS")
 			(uuid "fcc47eda-7ae5-45c4-9793-7e8b9181c9d2")
 			(effects
@@ -10871,6 +10871,22 @@
 		(uuid "dfdae008-4bdb-43f6-a1af-fc2e18121db7")
 	)
 	(segment
+		(start 114.16 142.5)
+		(end 116.5 144.84)
+		(width 2.5)
+		(layer "F.Cu")
+		(net "L_IN")
+		(uuid "e6ac8eb8-7d36-4a2f-9509-bc76c0ab6281")
+	)
+	(segment
+		(start 116.5 144.84)
+		(end 116.5 151)
+		(width 2.5)
+		(layer "F.Cu")
+		(net "L_IN")
+		(uuid "f702fc10-9b43-43e6-9582-3d661dbb9265")
+	)
+	(segment
 		(start 112 126.3)
 		(end 114.16 128.46)
 		(width 1)
@@ -11110,6 +11126,22 @@
 		(uuid "2ed31255-b4fe-45b5-b7c0-167c0658e507")
 	)
 	(segment
+		(start 104 148.66)
+		(end 106.34 151)
+		(width 1)
+		(layer "F.Cu")
+		(net "N")
+		(uuid "68efd594-c203-4ca4-b439-5e7adc71539c")
+	)
+	(segment
+		(start 104 142.5)
+		(end 104 148.66)
+		(width 1)
+		(layer "F.Cu")
+		(net "N")
+		(uuid "7baeaa54-6570-4681-b767-d5ce2c1e23da")
+	)
+	(segment
 		(start 104 142.5)
 		(end 104 116)
 		(width 1)
@@ -11171,6 +11203,30 @@
 		(layer "F.Cu")
 		(net "L_OUT")
 		(uuid "6714184c-3070-4685-b845-fe14431e28dd")
+	)
+	(segment
+		(start 111.42 148.79)
+		(end 111.42 151)
+		(width 2.5)
+		(layer "F.Cu")
+		(net "L_OUT")
+		(uuid "9699d5b7-91fb-4089-84b5-81f4f821436e")
+	)
+	(segment
+		(start 109.08 142.5)
+		(end 109.08 146.45)
+		(width 2.5)
+		(layer "F.Cu")
+		(net "L_OUT")
+		(uuid "9c638a7b-77ef-4dd3-b756-2c2b859e8bad")
+	)
+	(segment
+		(start 109.08 146.45)
+		(end 111.42 148.79)
+		(width 2.5)
+		(layer "F.Cu")
+		(net "L_OUT")
+		(uuid "c8b7478b-e2ff-4bac-910b-8b3913239194")
 	)
 	(segment
 		(start 109.08 142.5)
