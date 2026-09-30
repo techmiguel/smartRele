@@ -4,3 +4,4 @@ _autosave-*
 fp-info-cache
 *.kicad_prl
 *.bak
+.history/
