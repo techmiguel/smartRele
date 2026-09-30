@@ -1,5 +1,3 @@
 Referencia,Valor,Footprint,Nota
-J1,N / L_OUT / L_IN,"TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal","Borna 3 polos 5.08 mm, tornillo, entrada horizontal (N, OUT, L). Montaje manual: no se encontro un equivalente verificado en JLCPCB"
-J3,PROG,PinHeader_2x03_P2.54mm_Vertical,"No montar: header 2x3 paso 2,54 mm solo para el primer grabado (IO0 TX 3V3 / RST RX GND)"
 MH1,M2,MountingHole_2.2mm_M2,"Taladro M2, mecanico, sin red"
 MH2,M2,MountingHole_2.2mm_M2,"Taladro M2, mecanico, sin red"
