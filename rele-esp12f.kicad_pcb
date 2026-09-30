@@ -99,7 +99,7 @@
 		(descr "Wi-Fi Module, http://wiki.ai-thinker.com/_media/esp8266/docs/aithinker_esp_12f_datasheet_en.pdf")
 		(tags "Wi-Fi Module")
 		(property "Reference" "U2"
-			(at 0 14.4 270)
+			(at 10.1 -8.5 0)
 			(layer "F.SilkS")
 			(uuid "68467912-a32f-4210-afd4-e85f464a84b1")
 			(effects
@@ -765,7 +765,7 @@
 		(uuid "1a1e2787-7825-40b2-af5e-a19bca4ca143")
 		(at 164.25 132.38 -90)
 		(property "Reference" "J3"
-			(at 1.27 -2.380001 270)
+			(at 6.62 -0.05 0)
 			(unlocked yes)
 			(layer "F.SilkS")
 			(uuid "b5f4d3fd-e86c-4048-a6b5-7f4c0fa032be")
@@ -1909,7 +1909,7 @@
 		(descr "SOT, 3 Pin (https://www.jedec.org/system/files/docs/to-236h.pdf variant AB), generated with kicad-footprint-generator ipc_gullwing_generator.py")
 		(tags "SOT TO_SOT_SMD")
 		(property "Reference" "Q1"
-			(at 2.6 0 0)
+			(at -2.4 0.3 90)
 			(layer "F.SilkS")
 			(uuid "060d5484-135b-4416-b886-482e31f8eca0")
 			(effects
@@ -2249,7 +2249,7 @@
 		(descr "LED SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
 		(tags "LED")
 		(property "Reference" "D3"
-			(at 0 4.6 0)
+			(at 0 1.45 0)
 			(layer "F.SilkS")
 			(uuid "29b2564f-2713-4103-9634-5331b32354ee")
 			(effects
@@ -2462,7 +2462,7 @@
 		(descr "Terminal Block Phoenix MKDS-1,5-3-5.08, 3 pins, pitch 5.08mm, size 15.2x9.8mm^2, drill diamater 1.3mm, pad diameter 2.6mm, see http://www.farnell.com/datasheets/100425.pdf, script-generated using https://github.com/pointhi/kicad-footprint-generator/scripts/TerminalBlock_Phoenix")
 		(tags "THT Terminal Block Phoenix MKDS-1,5-3-5.08 pitch 5.08mm size 15.2x9.8mm^2 drill 1.3mm pad 2.6mm")
 		(property "Reference" "J1"
-			(at 5.08 4.7 0)
+			(at 14.56 0 0)
 			(layer "F.SilkS")
 			(uuid "0a1b8193-0ee5-44da-b04c-66a608802b66")
 			(effects
@@ -3219,7 +3219,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R1"
-			(at 0 -1.6 180)
+			(at 2.7 0 0)
 			(layer "F.SilkS")
 			(uuid "001331f2-fc91-46fe-934c-38d684563eb6")
 			(effects
@@ -3412,7 +3412,7 @@
 		(descr "SOD-123")
 		(tags "SOD-123")
 		(property "Reference" "D1"
-			(at 0 -1.8 270)
+			(at -3.05 0 0)
 			(layer "F.SilkS")
 			(uuid "e0881953-4bb9-4e6b-8d90-f9e995a6ef49")
 			(effects
@@ -3685,7 +3685,7 @@
 		(descr "Capacitor SMD 0805 (2012 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf, https://docs.google.com/spreadsheets/d/1BsfQQcO9C6DZCsRaXUlFlo91Tg2WpOkGARC1WS5S8t0/edit?usp=sharing), generated with kicad-footprint-generator")
 		(tags "capacitor")
 		(property "Reference" "C4"
-			(at 0 -1.6 90)
+			(at 3.2 0 0)
 			(layer "F.SilkS")
 			(uuid "4c173f66-3225-4ad2-9fc1-0452ff3b0e48")
 			(effects
@@ -3878,7 +3878,7 @@
 		(descr "CP, Radial series, Radial, pin pitch=2.50mm, , diameter=6.3mm, Electrolytic Capacitor")
 		(tags "CP Radial series Radial pin pitch 2.50mm  diameter 6.3mm Electrolytic Capacitor")
 		(property "Reference" "C1"
-			(at 0 -3.7 0)
+			(at -3.4 0 0)
 			(layer "F.SilkS")
 			(uuid "55ba2f4e-9bed-4a14-8491-d505b8753a38")
 			(effects
@@ -5386,7 +5386,7 @@
 		(descr "module CMS SOT223 4 pins")
 		(tags "CMS SOT")
 		(property "Reference" "U1"
-			(at 0 -4.2 0)
+			(at -5.1 0 90)
 			(layer "F.SilkS")
 			(uuid "4be1bab6-2cf6-4d1e-9d09-85570a58cfca")
 			(effects
@@ -5637,7 +5637,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R4"
-			(at 0 1.4 180)
+			(at -2.1 0 0)
 			(layer "F.SilkS")
 			(uuid "0cd2c561-700f-4d2e-9b19-5c1b5e90ad93")
 			(effects
@@ -5830,7 +5830,7 @@
 		(descr "LED SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
 		(tags "LED")
 		(property "Reference" "D2"
-			(at 0 4.6 0)
+			(at 0 -1.5 0)
 			(layer "F.SilkS")
 			(uuid "1a06848f-68c8-45c6-a580-ba24dd18ec51")
 			(effects
@@ -6789,7 +6789,7 @@
 		(descr "SMD Tactile Switch, http://www.helloxkb.com/public/images/pdf/TS-1187A-X-X-X.pdf")
 		(tags "SPST Tactile Switch")
 		(property "Reference" "SW2"
-			(at 0 5 0)
+			(at 4.55 0 90)
 			(layer "F.SilkS")
 			(uuid "fcc47eda-7ae5-45c4-9793-7e8b9181c9d2")
 			(effects
@@ -7261,7 +7261,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R9"
-			(at 0 4.6 270)
+			(at 2.1 0 0)
 			(layer "F.SilkS")
 			(uuid "e77e0463-0ae7-4722-9885-6f85dd4d3f19")
 			(effects
@@ -7648,7 +7648,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R8"
-			(at 0 4.6 0)
+			(at 0 1.45 0)
 			(layer "F.SilkS")
 			(uuid "c92634ee-ac3a-4bab-86a2-01ba03bcdebb")
 			(effects
@@ -7841,7 +7841,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R3"
-			(at 0 1.4 180)
+			(at -2.1 0 0)
 			(layer "F.SilkS")
 			(uuid "648778f8-802d-48e4-a205-7f93abd4970e")
 			(effects
@@ -8227,7 +8227,7 @@
 		(descr "Varistor, diameter 7mm, width 3.4mm, pitch 5mm")
 		(tags "varistor SIOV")
 		(property "Reference" "RV1"
-			(at 2 -2.4 180)
+			(at 2.5 -1.8 0)
 			(layer "F.SilkS")
 			(uuid "0750ef68-b6d0-4338-bb2e-8a2365e85a01")
 			(effects
@@ -8442,7 +8442,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R2"
-			(at 0 -1.6 180)
+			(at -2.3 0 0)
 			(layer "F.SilkS")
 			(uuid "bc369ccd-91f0-48ea-b878-a32c9ed26d8a")
 			(effects
@@ -8635,7 +8635,7 @@
 		(descr "relay Sanyou SRD series Form C http://www.sanyourelay.ca/public/products/pdf/SRD.pdf")
 		(tags "relay Sanyu SRD form C")
 		(property "Reference" "K1"
-			(at 9.5 9.2 180)
+			(at 9.45 6.6 0)
 			(layer "F.SilkS")
 			(uuid "2df68dfb-3c46-4335-92f9-ab865c719f9c")
 			(effects
@@ -9146,7 +9146,7 @@
 		(uuid "8d3f3f90-f350-4355-b32b-5993bfe50228")
 	)
 	(gr_text "rele-esp12f v2"
-		(at 109.5 129.75 0)
+		(at 111.8 129.4 0)
 		(layer "F.SilkS")
 		(uuid "62b02b48-0a3e-49c4-bbe7-8006024b16b4")
 		(effects
