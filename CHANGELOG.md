@@ -2,6 +2,12 @@
 
 All notable hardware revisions are documented here, together with the engineering rationale behind each change.
 
+## [firmware 1.0.0] — 2026-10-04
+
+### Added
+- **First firmware for the board** in [`firmware/`](firmware/) (PlatformIO, Arduino core for ESP8266). The relay is controlled over Wi-Fi only: manual on/off, state-change timer, cyclic ON/OFF routine and up to 16 weekly schedules (NTP + POSIX time zone). Web interface, JSON REST API with Digest authentication, setup access point with captive portal, mDNS and OTA updates (ArduinoOTA and browser upload).
+- **Hardware-aware defaults**: GPIO5 is driven low before anything else runs, the relay state is only written to flash when it changes (never during the cyclic routine), and each routine phase is at least 5 s.
+
 ## [v3] — 2026-10-03
 
 ### Changed

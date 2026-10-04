@@ -29,6 +29,7 @@ A 2-layer, **66.5 × 49 mm** board that switches a mains load of up to **10 A** 
 - [Connectors and pinout](#connectors-and-pinout)
 - [Repository layout](#repository-layout)
 - [Manufacturing and assembly](#manufacturing-and-assembly)
+- [Firmware](#firmware)
 - [First firmware flashing](#first-firmware-flashing)
 - [Enclosure](#enclosure)
 - [Design verification](#design-verification)
@@ -129,6 +130,7 @@ Pin 1 (square pad) = GND; pin 2 = 5 V. Labeled on the silkscreen.
 │   ├── rele-esp12f_datasheet_user_guide.pdf
 │   ├── pcb_top.png · pcb_bottom.png
 │   └── datasheets/            Datasheets of the key components
+├── firmware/                  ESP8266 firmware (PlatformIO, Arduino core)
 ├── enclosure/                 3D-printable enclosure (FreeCAD, STEP, STL)
 ├── scripts/                   PDF datasheet generator
 ├── CHANGELOG.md
@@ -185,16 +187,27 @@ kicad-cli pcb render --side bottom -w 1592 -h 904 --background opaque --quality 
 
 These explicit options are needed because the plot settings stored in the board produce `.gbr` extensions and an unnecessary B.Paste layer. The ZIP contains the 11 files in `fabrication/gerbers/` plus `CPL_JLCPCB.csv`.
 
+## Firmware
+
+The [`firmware/`](firmware/) folder holds the board's own firmware (PlatformIO, Arduino core for ESP8266). In this version the relay is controlled over Wi-Fi only, from a built-in web page or a JSON REST API:
+
+- manual on / off;
+- state-change timer (turn on, off or toggle after 1 s – 7 days);
+- cyclic ON/OFF routine (on for one period, off for another, repeated);
+- up to 16 weekly schedules synchronised over NTP, with a configurable time zone.
+
+On first boot it opens the `SmartRele-XXXXXX` setup access point; holding SW1 for 8 s erases the Wi-Fi settings. Setup, behaviour, API and security notes are in [`firmware/README.md`](firmware/README.md).
+
 ## First firmware flashing
 
 1. **Disconnect the board from mains.**
 2. Connect a USB-serial adapter with **3.3 V logic** to J3: TX↔RX, RX↔TX, GND, and its **5 V (VBUS)** output to the 5V pin.
 3. Hold SW1 (GPIO0) while pressing and releasing SW2 (RST) to enter flashing mode.
-4. Flash the firmware. Later updates are done over the air (OTA).
+4. Flash the firmware (`pio run -e esp12f -t upload` from `firmware/`). Later updates are done over the air (OTA).
 
 J3 is powered at 5 V rather than 3.3 V for two reasons. The internal output-to-input diode of the AMS1117 would make the adapter also feed the 5 V rail. In addition, the 3.3 V pin of a typical adapter cannot supply the current peaks the ESP8266 draws while calibrating its radio.
 
-Firmware is not part of this repository. The [datasheet](docs/rele-esp12f_datasheet_user_guide.pdf) includes example configurations for Tasmota and ESPHome.
+Third-party firmware also works: the [datasheet](docs/rele-esp12f_datasheet_user_guide.pdf) includes example configurations for Tasmota and ESPHome.
 
 ## Enclosure
 
