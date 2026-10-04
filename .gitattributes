@@ -1,0 +1,13 @@
+# Archivos binarios: sin conversión de fin de línea ni diffs de texto
+*.pdf     binary
+*.png     binary
+*.jpg     binary
+*.zip     binary
+*.step    binary
+*.stp     binary
+*.stl     binary
+*.FCStd   binary
+
+# Salidas de fabricación generadas: se excluyen de las estadísticas de lenguaje
+fabricacion/** linguist-generated
+3dmodels/**    linguist-vendored

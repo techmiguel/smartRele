@@ -1,7 +1,32 @@
+# KiCad: copias de seguridad, bloqueos y cachés
 *-backups/
 _autosave-*
+~*.lck
 *.lck
 fp-info-cache
 *.kicad_prl
 *.bak
+*.kicad_sch-bak
+*.kicad_pcb-bak
+
+# Informes y salidas temporales de verificación
+*.rpt
+*-drc.json
+*-erc.json
+
+# FreeCAD
+*.FCBak
+*.FCStd1
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Editores y sistema operativo
 .history/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
