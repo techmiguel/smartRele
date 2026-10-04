@@ -1,52 +1,53 @@
-# Historial de cambios
+# Changelog
 
-Todas las revisiones relevantes del hardware se documentan aquí, junto con el criterio de ingeniería de cada cambio.
+All notable hardware revisions are documented here, together with the engineering rationale behind each change.
 
 ## [v3] — 2026-10-03
 
-### Cambiado
-- **Relé Omron G5RL-1A-E-HR DC5** (SPST-NO, 16 A / 250 VAC, LCSC C113250) en lugar del SRD-05VDC-SL-C. Usa la huella `Relay_SPST_Omron_G2RL-1A-E`, con el mismo patrón de 6 taladros de Ø1,3 mm que indica la hoja de datos del G5RL-1A-E. Al ser un modelo "-E" de alta capacidad, cada contacto sale por dos patillas y el fabricante exige usar ambas; en la placa, cada pareja queda unida por la pista de potencia.
-- **Bobina y contactos a 20 mm** (8 mm de distancia interna, aislamiento reforzado). Desaparece la excepción de separación que exigía el SRD.
-- **Placa de 66,5 × 49 mm** para alojar el relé de 29 × 12,7 mm.
-- **J3 alimentado a 5 V** (pin 1 = GND, pin 2 = 5 V). Inyectar 3,3 V en la salida del AMS1117 polarizaba su diodo interno salida→entrada y cargaba el rail de 5 V. Además, el pin de 3,3 V de un adaptador USB-serie típico no soporta los picos del ESP8266. Se elimina la rama de +3V3 hacia J3, que partía el plano de GND bajo el módulo.
-- **Carga de hasta 10 A**: L_IN y L_OUT duplicadas en ambas caras (2 × 2,5 mm). Según IPC-2221 (35 µm, capa externa), admiten unos 12 A con 20 °C de calentamiento.
-- **Cobre de red alejado del borde**: F1 y RV1 se desplazan 2 mm y N y L_F se re-rutean. La distancia mínima al borde pasa de 1,3 a 2,0 mm.
+### Changed
+- **Omron G5RL-1A-E-HR DC5 relay** (SPST-NO, 16 A / 250 VAC, LCSC C113250) instead of the SRD-05VDC-SL-C. It uses the `Relay_SPST_Omron_G2RL-1A-E` footprint, which has the same 6-hole Ø1.3 mm pattern given in the G5RL-1A-E datasheet. As an "-E" high-capacity model, each contact comes out on two pins and the manufacturer requires both to be used; on the board each pair is joined by the power trace.
+- **Coil and contacts 20 mm apart** (8 mm internal distance, reinforced insulation). The clearance exception required by the SRD relay is gone.
+- **66.5 × 49 mm board** to fit the 29 × 12.7 mm relay.
+- **J3 powered at 5 V** (pin 1 = GND, pin 2 = 5 V). Injecting 3.3 V into the AMS1117 output forward-biased its internal output→input diode and loaded the 5 V rail. Besides, the 3.3 V pin of a typical USB-serial adapter cannot supply the ESP8266 current peaks. The +3V3 branch to J3, which split the GND plane under the module, was removed.
+- **Load current up to 10 A**: L_IN and L_OUT duplicated on both sides (2 × 2.5 mm). Per IPC-2221 (35 µm, external layer) they carry about 12 A with a 20 °C rise.
+- **Mains copper moved away from the edge**: F1 and RV1 shifted by 2 mm and N and L_F re-routed. The minimum distance to the edge went from 1.3 to 2.0 mm.
+- **Silkscreen and schematic labels in English** ("DANGER: 110 VAC", section titles, LED values). Schematic title block updated to revision v3.
 
-### Añadido
-- **C7 y C8 (100 nF)** en EN y RST: con R1/R2 forman un retardo RC de ~1 ms en el arranque, según la recomendación de Espressif.
-- **C9 (10 µF X5R 0603, C19702)** junto al VCC del ESP-12F, en paralelo con C5 (100 nF), para cubrir los picos de transmisión.
-- Hoja de datos y guía de usuario en PDF, y chasis imprimible en 3D.
+### Added
+- **C7 and C8 (100 nF)** on EN and RST: together with R1/R2 they form a ~1 ms RC delay at start-up, as recommended by Espressif.
+- **C9 (10 µF X5R 0603, C19702)** next to the ESP-12F VCC pin, in parallel with C5 (100 nF), to cover the transmit current peaks.
+- PDF datasheet and user guide, and a 3D-printable enclosure.
 
-### Corregido
-- **Regla de diseño de K1 eliminada.** Reducía a 2 mm la separación de cualquier objeto dentro del courtyard de K1 y, al ser la última regla aplicable, anulaba la de 4 mm entre red y baja tensión en esa zona.
-- **Pista de Net-(D3-A) fuera del área de la arandela de MH1.** Pasaba a 0,35 mm del taladro, bajo la tornillería. Ahora ninguna pista ni pad de señal entra en un círculo de Ø5 mm alrededor de MH1/MH2.
-- **L_IN a 2,5 mm** (antes 2,0 mm), igualada con L_OUT.
-- **Atributos de montaje**: K1 y J3 marcados como THT y C7/C8 como SMD, para que se exporten correctamente al CPL.
+### Fixed
+- **K1 design rule removed.** It reduced the clearance to 2 mm for any object inside the K1 courtyard and, being the last matching rule, overrode the 4 mm mains/low-voltage rule in that area.
+- **Net-(D3-A) trace moved out of the MH1 washer area.** It ran 0.35 mm from the hole, under the hardware. No signal trace or pad now enters a Ø5 mm circle around MH1/MH2.
+- **L_IN widened to 2.5 mm** (previously 2.0 mm), matching L_OUT.
+- **Assembly attributes**: K1 and J3 marked as THT and C7/C8 as SMD, so they are exported correctly to the CPL.
 
 ## [v2] — 2026-09-30
 
-### Cambiado
-- **Tamaño de 66 × 66 mm a 66,5 × 44 mm** (−33 % de área), con todos los componentes en la cara superior.
-- **Nueva distribución**: fuente y ESP-12F en la franja superior (antena en el borde), zona de red abajo a la izquierda y baja tensión abajo a la derecha.
-- **Tensión nominal de 110 VAC** (varistor 07D221K).
-- **J3 como header 2×3** de 2,54 mm (antes 1×6): ocupa la mitad y queda a ~10 mm de la antena.
-- Redes de la placa sincronizadas con el esquemático. Las clases MAINS y PWR se amplían a los nombres nuevos.
-- Planos de GND en ambas caras, solo en la zona de baja tensión y a ≥ 4,5 mm del cobre de red por geometría.
+### Changed
+- **Board size reduced from 66 × 66 mm to 66.5 × 44 mm** (−33 % area), with all components on the top side.
+- **New layout**: supply and ESP-12F in the top strip (antenna at the edge), mains zone at the bottom left and low voltage at the bottom right.
+- **110 VAC nominal voltage** (07D221K varistor).
+- **J3 as a 2×3 header**, 2.54 mm pitch (previously 1×6): half the size and ~10 mm away from the antenna.
+- Board nets synchronized with the schematic. The MAINS and PWR net classes were extended to the new names.
+- GND planes on both sides, only in the low-voltage zone and geometrically ≥ 4.5 mm away from mains copper.
 
-### Fabricación
-- **Montaje completo en JLCPCB**, incluidas las piezas THT: J1 (KANGNEX WJ500V-5.08-3P, C72334) y J3 (C65114).
-- **F1 sustituido por Reomax MTS0500A** (T500mA 250 V, C2762401), por falta de stock del Littelfuse 39505000440; misma huella.
-- **CPL con el centro de pads** (convención de JLCPCB). U2 y K1 usaban antes el centro del cuerpo y salían desplazados 3,8 y 1,4 mm.
-- **Taladros ajustados**: J1 de Ø1,3 a Ø1,5 mm y RV1 de Ø0,6 a Ø1,0 mm, según las dimensiones de patilla de los fabricantes. Los pads de cobre no cambian.
-- Modelos STEP de SW1/SW2, F1 y K1 en `3dmodels/`, referenciados con `${KIPRJMOD}`.
+### Manufacturing
+- **Full assembly at JLCPCB**, including the THT parts: J1 (KANGNEX WJ500V-5.08-3P, C72334) and J3 (C65114).
+- **F1 replaced with a Reomax MTS0500A** (T500mA 250 V, C2762401), because the Littelfuse 39505000440 was out of stock; same footprint.
+- **CPL using the pad center** (JLCPCB convention). U2 and K1 previously used the body center and were offset by 3.8 and 1.4 mm.
+- **Adjusted drill sizes**: J1 from Ø1.3 to Ø1.5 mm and RV1 from Ø0.6 to Ø1.0 mm, according to the manufacturers' lead dimensions. Copper pads are unchanged.
+- STEP models for SW1/SW2, F1 and K1 in `3dmodels/`, referenced through `${KIPRJMOD}`.
 
-### Corregido
-- Serigrafía: se recolocan 19 referencias y el texto de versión, que estaban solapados, junto a otro componente o fuera del borde.
+### Fixed
+- Silkscreen: 19 reference designators and the version text were repositioned; they overlapped, sat next to the wrong component or fell outside the board edge.
 
 ## [v1] — 2026-09-25
 
-- Diseño inicial: módulo de relé Wi-Fi con ESP-12F, fuente HLK-PM01, relé SRD-05VDC-SL-C y reglas de aislamiento propias entre red y baja tensión.
+- Initial design: ESP-12F Wi-Fi relay module with HLK-PM01 supply, SRD-05VDC-SL-C relay and custom mains/low-voltage isolation rules.
 
 [v3]: https://github.com/techmiguel/smartRele/releases/tag/v3
-[v2]: https://github.com/techmiguel/smartRele/releases/tag/v2
-[v1]: https://github.com/techmiguel/smartRele/releases/tag/v1
+[v2]: https://github.com/techmiguel/smartRele/tree/v2
+[v1]: https://github.com/techmiguel/smartRele/tree/v1

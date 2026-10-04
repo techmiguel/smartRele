@@ -1,4 +1,4 @@
-# Archivos binarios: sin conversión de fin de línea ni diffs de texto
+# Binary files: no line-ending conversion and no text diffs
 *.pdf     binary
 *.png     binary
 *.jpg     binary
@@ -8,6 +8,6 @@
 *.stl     binary
 *.FCStd   binary
 
-# Salidas de fabricación generadas: se excluyen de las estadísticas de lenguaje
+# Generated manufacturing outputs: excluded from language statistics
 fabricacion/** linguist-generated
 3dmodels/**    linguist-vendored

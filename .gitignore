@@ -1,4 +1,4 @@
-# KiCad: copias de seguridad, bloqueos y cachés
+# KiCad: backups, lock files and caches
 *-backups/
 _autosave-*
 ~*.lck
@@ -9,7 +9,7 @@ fp-info-cache
 *.kicad_sch-bak
 *.kicad_pcb-bak
 
-# Informes y salidas temporales de verificación
+# Verification reports and temporary outputs
 *.rpt
 *-drc.json
 *-erc.json
@@ -23,7 +23,7 @@ __pycache__/
 *.py[cod]
 .venv/
 
-# Editores y sistema operativo
+# Editors and operating system
 .history/
 .vscode/
 .idea/

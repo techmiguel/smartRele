@@ -1,249 +1,249 @@
 # SmartRele · rele-esp12f
 
-**Módulo de relé Wi-Fi monocanal basado en ESP-12F (ESP8266) para redes de 110–120 VAC.**
+**Single-channel Wi-Fi relay module based on the ESP-12F (ESP8266) for 110–120 VAC mains.**
 
 ![KiCad](https://img.shields.io/badge/KiCad-10-314CB0?logo=kicad&logoColor=white)
 ![MCU](https://img.shields.io/badge/MCU-ESP8266%20%C2%B7%20ESP--12F-E7352C)
-![Red](https://img.shields.io/badge/red-110%E2%80%93120%20VAC-orange)
-![Carga](https://img.shields.io/badge/carga-%E2%89%A4%2010%20A-orange)
-![Montaje](https://img.shields.io/badge/montaje-JLCPCB%20PCBA%20completo-success)
-![DRC](https://img.shields.io/badge/DRC%20%2F%20ERC-0%20errores-brightgreen)
-![Licencia](https://img.shields.io/badge/licencia-CERN--OHL--W--2.0-blue)
+![Mains](https://img.shields.io/badge/mains-110%E2%80%93120%20VAC-orange)
+![Load](https://img.shields.io/badge/load-%E2%89%A4%2010%20A-orange)
+![Assembly](https://img.shields.io/badge/assembly-JLCPCB%20full%20PCBA-success)
+![DRC](https://img.shields.io/badge/DRC%20%2F%20ERC-0%20errors-brightgreen)
+![License](https://img.shields.io/badge/license-CERN--OHL--W--2.0-blue)
 
 <p align="center">
-  <img src="docs/pcb_superior.png" alt="Render de la cara superior" width="49%">
-  <img src="docs/pcb_inferior.png" alt="Render de la cara inferior" width="49%">
+  <img src="docs/pcb_top.png" alt="PCB render, top side" width="49%">
+  <img src="docs/pcb_bottom.png" alt="PCB render, bottom side" width="49%">
 </p>
 
-Placa de 2 capas y **66,5 × 49 mm** que conmuta una carga de red de hasta **10 A** desde un ESP-12F. Se alimenta directamente de la red mediante una fuente aislada HLK-PM01 e integra protección de entrada (fusible de acción retardada y varistor), relé de potencia Omron G5RL de 16 A, indicadores de estado y conector de programación. Todos los componentes van en la cara superior y la placa está preparada para pedirse **montada completa en JLCPCB** (SMD y THT), sin soldadura manual.
+A 2-layer, **66.5 × 49 mm** board that switches a mains load of up to **10 A** from an ESP-12F. It is powered directly from the mains through an isolated HLK-PM01 supply and integrates input protection (time-lag fuse and varistor), a 16 A Omron G5RL power relay, status indicators and a programming header. All components sit on the top side, and the board is ready to be ordered **fully assembled from JLCPCB** (SMD and THT), with no hand soldering.
 
 > [!WARNING]
-> Este diseño trabaja con **tensión de red**. Su montaje, prueba e instalación deben hacerlos personas cualificadas. Lee la sección [Seguridad](#seguridad) antes de conectar la placa.
+> This design operates at **mains voltage**. Assembly, testing and installation must be carried out by qualified people. Read the [Safety](#safety) section before connecting the board.
 
 ---
 
-## Índice
-- [Características](#características)
-- [Especificaciones](#especificaciones)
-- [Arquitectura](#arquitectura)
-- [Conectores y asignación de pines](#conectores-y-asignación-de-pines)
-- [Estructura del repositorio](#estructura-del-repositorio)
-- [Fabricación y montaje](#fabricación-y-montaje)
-- [Primer grabado del firmware](#primer-grabado-del-firmware)
-- [Chasis](#chasis)
-- [Verificación del diseño](#verificación-del-diseño)
-- [Seguridad](#seguridad)
-- [Documentación](#documentación)
-- [Licencia](#licencia)
+## Table of contents
+- [Features](#features)
+- [Specifications](#specifications)
+- [Architecture](#architecture)
+- [Connectors and pinout](#connectors-and-pinout)
+- [Repository layout](#repository-layout)
+- [Manufacturing and assembly](#manufacturing-and-assembly)
+- [First firmware flashing](#first-firmware-flashing)
+- [Enclosure](#enclosure)
+- [Design verification](#design-verification)
+- [Safety](#safety)
+- [Documentation](#documentation)
+- [License](#license)
 
-## Características
-- **ESP-12F** con la antena en el borde de la placa y zona sin cobre bajo ella.
-- **Relé Omron G5RL-1A-E-HR** (SPST-NO, 16 A / 250 VAC) con 8 mm de separación bobina–contacto (aislamiento reforzado según el fabricante).
-- **Zonificación estricta red / baja tensión** con reglas de diseño propias: 4 mm entre red y baja tensión y 2 mm entre redes de red. Separación mínima medida: 4,35 mm.
-- **Camino de potencia duplicado** en ambas caras (2 × 2,5 mm, 35 µm) dimensionado para 10 A con unos 12 °C de calentamiento (IPC-2221).
-- **Protección de entrada**: fusible T500mA de acción retardada (protege a la fuente) y varistor 07D221K.
-- **Arranque robusto**: retardo RC en EN y RST, desacoplo 10 µF + 100 nF junto al módulo, y relé abierto durante el reset.
-- **Indicadores** de relé (rojo) y Wi-Fi (azul); pulsadores de usuario/arranque (GPIO0) y reset.
-- **Programación** por header 2×3 alimentado a 5 V; después, actualizaciones OTA.
-- **Paquete de fabricación completo**: Gerbers, taladros, BOM y CPL listos para JLCPCB, con modelos 3D de todas las piezas.
-- **Chasis imprimible** en 3D, paramétrico y verificado contra el modelo 3D de la placa montada.
+## Features
+- **ESP-12F** with the antenna at the board edge and a copper-free area underneath.
+- **Omron G5RL-1A-E-HR relay** (SPST-NO, 16 A / 250 VAC) with 8 mm coil-to-contact separation (reinforced insulation per the manufacturer).
+- **Strict mains / low-voltage zoning** enforced by custom design rules: 4 mm between mains and low voltage, 2 mm between mains nets. Measured minimum clearance: 4.35 mm.
+- **Duplicated power path** on both sides (2 × 2.5 mm, 35 µm), sized for 10 A with a ~12 °C temperature rise (IPC-2221).
+- **Input protection**: T500mA time-lag fuse (protects the supply) and 07D221K varistor.
+- **Robust start-up**: RC delay on EN and RST, 10 µF + 100 nF decoupling next to the module, and the relay held open during reset.
+- **Indicators** for relay (red) and Wi-Fi (blue); user/boot (GPIO0) and reset push buttons.
+- **Programming** through a 2×3 header powered at 5 V; OTA updates afterwards.
+- **Complete manufacturing package**: Gerbers, drill files, BOM and CPL ready for JLCPCB, with 3D models for every part.
+- **3D-printable enclosure**, parametric and checked against the 3D model of the assembled board.
 
-## Especificaciones
+## Specifications
 
-| Parámetro | Valor |
+| Parameter | Value |
 |---|---|
-| Tensión de entrada | 110–120 VAC, 50/60 Hz |
-| Carga máxima | 10 A resistiva (límite de las pistas; relé 16 A, borna 18 A) |
-| Contacto | SPST-NO, conmuta la fase (L) |
-| Fuente interna | HLK-PM01, 5 V / 600 mA, aislada |
-| Regulador | AMS1117-3.3 |
-| Microcontrolador | ESP8266 (módulo ESP-12F), Wi-Fi 802.11 b/g/n |
-| Protección | F1 T500mA 250 V (rama de la fuente) · RV1 07D221K |
-| PCB | 66,5 × 49 × 1,6 mm, 2 capas, cobre 35 µm |
-| Montaje | Una sola cara; 32 componentes, todos montados en fábrica |
-| Taladros de fijación | 2 × M2 (MH1, MH2), en la zona de baja tensión |
+| Input voltage | 110–120 VAC, 50/60 Hz |
+| Maximum load | 10 A resistive (trace limit; relay 16 A, terminal block 18 A) |
+| Contact | SPST-NO, switches the line (L) |
+| On-board supply | HLK-PM01, 5 V / 600 mA, isolated |
+| Regulator | AMS1117-3.3 |
+| Microcontroller | ESP8266 (ESP-12F module), Wi-Fi 802.11 b/g/n |
+| Protection | F1 T500mA 250 V (supply branch) · RV1 07D221K |
+| PCB | 66.5 × 49 × 1.6 mm, 2 layers, 35 µm copper |
+| Assembly | Single-sided; 32 components, all factory-assembled |
+| Mounting holes | 2 × M2 (MH1, MH2), in the low-voltage zone |
 
-La hoja de datos completa, con condiciones de medida y origen de cada valor, está en [`docs/rele-esp12f_datasheet_guia_usuario.pdf`](docs/rele-esp12f_datasheet_guia_usuario.pdf).
+The full datasheet, with test conditions and the source of each value, is in [`docs/rele-esp12f_datasheet_user_guide.pdf`](docs/rele-esp12f_datasheet_user_guide.pdf).
 
-## Arquitectura
+## Architecture
 
 ```
- Potencia   J1:L ──────────► K1 contacto (COM → NO) ──────────► J1:OUT ──► carga
+ Power      J1:L ──────────► K1 contact (COM → NO) ──────────► J1:OUT ──► load
 
- Fuente     J1:L ── F1 ── L_F ──► PS1 HLK-PM01 ──► +5 V ── U1 AMS1117 ──► +3,3 V ──► U2 ESP-12F
-                          RV1 entre L_F y N
+ Supply     J1:L ── F1 ── L_F ──► PS1 HLK-PM01 ──► +5 V ── U1 AMS1117 ──► +3.3 V ──► U2 ESP-12F
+                          RV1 between L_F and N
 
- Control    +5 V ── bobina K1 (D1 en antiparalelo) ── Q1 SS8050 ── GND
-                                                       ▲
-                                            GPIO5 (U2) ── R6 1 kΩ
+ Control    +5 V ── K1 coil (D1 flyback diode) ── Q1 SS8050 ── GND
+                                                   ▲
+                                        GPIO5 (U2) ── R6 1 kΩ
 ```
 
-- **Zona de red** (abajo a la izquierda): J1, F1, RV1, K1 y la entrada de PS1.
-- **Zona de baja tensión** (derecha): U1 y sus condensadores, driver del relé, LEDs, pulsadores, J3 y taladros de fijación. Planos de GND en ambas caras, limitados a esta zona.
-- **Franja superior**: PS1 a la izquierda y el ESP-12F con la antena en el borde derecho.
+- **Mains zone** (bottom left): J1, F1, RV1, K1 and the PS1 input.
+- **Low-voltage zone** (right): U1 and its capacitors, relay driver, LEDs, push buttons, J3 and mounting holes. GND planes on both sides, restricted to this zone.
+- **Top strip**: PS1 on the left and the ESP-12F with its antenna on the right edge.
 
-El esquemático completo está en [`docs/esquematico.pdf`](docs/esquematico.pdf).
+The full schematic is in [`docs/schematic.pdf`](docs/schematic.pdf).
 
-## Conectores y asignación de pines
+## Connectors and pinout
 
-### J1 — Borna de red (3 polos, paso 5,08 mm)
-| Pin | Señal | Función |
+### J1 — Mains terminal block (3 poles, 5.08 mm pitch)
+| Pin | Signal | Function |
 |:-:|---|---|
-| 1 | N | Neutro |
-| 2 | OUT | Salida conmutada hacia la carga |
-| 3 | L | Fase de entrada |
+| 1 | N | Neutral |
+| 2 | OUT | Switched output to the load |
+| 3 | L | Line input |
 
-### J3 — Programación (header 2×3, paso 2,54 mm)
+### J3 — Programming (2×3 header, 2.54 mm pitch)
 ```
  IO0   TX   GND(1)
  RST   RX   5V
 ```
-Pin 1 (pad cuadrado) = GND; pin 2 = 5 V. Rotulado en la serigrafía.
+Pin 1 (square pad) = GND; pin 2 = 5 V. Labeled on the silkscreen.
 
 ### ESP-12F
-| GPIO | Función |
+| GPIO | Function |
 |---|---|
-| GPIO5 | Relé (SS8050, R6 1 kΩ, R7 10 kΩ a GND) y LED de relé (D2) |
-| GPIO4 | LED de Wi-Fi (D3) |
-| GPIO0 | Pulsador SW1 (modo de grabado / uso de aplicación), 10 kΩ a 3,3 V |
-| GPIO2 | 10 kΩ a 3,3 V (arranque) |
-| GPIO15 | 10 kΩ a GND (arranque) |
-| EN, RST | 10 kΩ a 3,3 V + 100 nF a GND; RST también a SW2 |
+| GPIO5 | Relay (SS8050, R6 1 kΩ, R7 10 kΩ to GND) and relay LED (D2) |
+| GPIO4 | Wi-Fi LED (D3) |
+| GPIO0 | Push button SW1 (flashing mode / application use), 10 kΩ to 3.3 V |
+| GPIO2 | 10 kΩ to 3.3 V (boot strap) |
+| GPIO15 | 10 kΩ to GND (boot strap) |
+| EN, RST | 10 kΩ to 3.3 V + 100 nF to GND; RST also to SW2 |
 
-## Estructura del repositorio
+## Repository layout
 
 ```
 .
-├── rele-esp12f.kicad_pro      Proyecto KiCad 10
-├── rele-esp12f.kicad_sch      Esquemático
-├── rele-esp12f.kicad_pcb      Placa
-├── rele-esp12f.kicad_dru      Reglas de diseño personalizadas (aislamiento de red)
-├── 3dmodels/                  Modelos STEP ausentes en la librería de KiCad (K1, F1, SW1/SW2)
-├── fabricacion/               Paquete de producción para JLCPCB
-│   ├── gerbers/               Gerbers y taladros (Excellon)
-│   ├── gerbers_JLCPCB.zip     Gerbers + taladros + CPL, listo para subir
-│   ├── BOM_JLCPCB.csv         Lista de materiales con referencias LCSC
-│   └── CPL_JLCPCB.csv         Posiciones de montaje
+├── rele-esp12f.kicad_pro      KiCad 10 project
+├── rele-esp12f.kicad_sch      Schematic
+├── rele-esp12f.kicad_pcb      PCB layout
+├── rele-esp12f.kicad_dru      Custom design rules (mains isolation)
+├── 3dmodels/                  STEP models missing from the KiCad library (K1, F1, SW1/SW2)
+├── fabrication/               Production package for JLCPCB
+│   ├── gerbers/               Gerbers and drill files (Excellon)
+│   ├── gerbers_JLCPCB.zip     Gerbers + drill files + CPL, ready to upload
+│   ├── BOM_JLCPCB.csv         Bill of materials with LCSC part numbers
+│   └── CPL_JLCPCB.csv         Component placement list
 ├── docs/
-│   ├── esquematico.pdf
-│   ├── rele-esp12f_datasheet_guia_usuario.pdf
-│   ├── pcb_superior.png · pcb_inferior.png
-│   └── datasheets/            Hojas de datos de los componentes principales
-├── chasis/                    Caja imprimible (FreeCAD, STEP, STL)
-├── scripts/                   Generación de la hoja de datos en PDF
+│   ├── schematic.pdf
+│   ├── rele-esp12f_datasheet_user_guide.pdf
+│   ├── pcb_top.png · pcb_bottom.png
+│   └── datasheets/            Datasheets of the key components
+├── enclosure/                 3D-printable enclosure (FreeCAD, STEP, STL)
+├── scripts/                   PDF datasheet generator
 ├── CHANGELOG.md
 └── LICENSE
 ```
 
-Los modelos 3D propios se referencian con `${KIPRJMOD}/3dmodels/`, por lo que el proyecto se abre sin configurar rutas adicionales.
+The custom 3D models are referenced through `${KIPRJMOD}/3dmodels/`, so the project opens without any extra path configuration.
 
-## Fabricación y montaje
+## Manufacturing and assembly
 
-1. Sube [`fabricacion/gerbers_JLCPCB.zip`](fabricacion/gerbers_JLCPCB.zip) a JLCPCB (2 capas, 1,6 mm).
-2. Activa **PCB Assembly** (montaje en la cara superior) y carga [`BOM_JLCPCB.csv`](fabricacion/BOM_JLCPCB.csv) y [`CPL_JLCPCB.csv`](fabricacion/CPL_JLCPCB.csv).
-3. Antes de pagar, revisa en el visor de JLCPCB que:
-   - U2 y K1 encajan sobre sus pads;
-   - la entrada de cable de J1 mira hacia el borde de la placa;
-   - el pin 1 de J3 cae en el pad cuadrado (GND);
-   - todas las líneas de la BOM tienen pieza seleccionada.
+1. Upload [`fabrication/gerbers_JLCPCB.zip`](fabrication/gerbers_JLCPCB.zip) to JLCPCB (2 layers, 1.6 mm).
+2. Enable **PCB Assembly** (top side) and upload [`BOM_JLCPCB.csv`](fabrication/BOM_JLCPCB.csv) and [`CPL_JLCPCB.csv`](fabrication/CPL_JLCPCB.csv).
+3. Before paying, check in the JLCPCB viewer that:
+   - U2 and K1 sit on their pads;
+   - the J1 wire entry faces the board edge;
+   - J3 pin 1 lands on the square pad (GND);
+   - every BOM line has a part selected.
 
-Las piezas THT se sueldan por ola. El CPL usa el **centro de los pads** (convención de JLCPCB), no el centro del cuerpo; en U2 y K1 ambos difieren. Los taladros de J1 (Ø1,5 mm) y RV1 (Ø1,0 mm) están ajustados a las piezas reales.
+THT parts are wave-soldered. The CPL uses the **pad center** (JLCPCB convention), not the body center; for U2 and K1 they differ. The drill holes of J1 (Ø1.5 mm) and RV1 (Ø1.0 mm) are matched to the actual parts.
 
-### Componentes de potencia y THT
+### Power and THT components
 
-| Ref. | Pieza | LCSC | Observaciones |
+| Ref. | Part | LCSC | Notes |
 |---|---|---|---|
-| PS1 | Hi-Link HLK-PM01 | C209903 | Fuente aislada 5 V |
-| K1 | Omron G5RL-1A-E-HR DC5 | C113250 | SPST-NO 16 A; bobina 5 V, ~106 mA |
-| F1 | Reomax MTS0500A, T500mA 250 V | C2762401 | Acción retardada, por el pico de arranque de PS1 |
-| RV1 | Varistor 07D221K | C49072913 | Para 110–120 VAC |
+| PS1 | Hi-Link HLK-PM01 | C209903 | Isolated 5 V supply |
+| K1 | Omron G5RL-1A-E-HR DC5 | C113250 | SPST-NO 16 A; 5 V coil, 80 mA |
+| F1 | Reomax MTS0500A, T500mA 250 V | C2762401 | Time-lag, due to the PS1 inrush current |
+| RV1 | Varistor 07D221K | C49072913 | For 110–120 VAC |
 | C1 | 470 µF 10 V | C112505 | |
 | J1 | KANGNEX WJ500V-5.08-3P | C72334 | 250 V / 18 A |
-| J3 | Header 2×3, 2,54 mm | C65114 | Solo para el primer grabado |
+| J3 | 2×3 header, 2.54 mm | C65114 | Only used for the first flashing |
 
-La lista completa está en la [BOM](fabricacion/BOM_JLCPCB.csv).
+The full list is in the [BOM](fabrication/BOM_JLCPCB.csv).
 
-### Regenerar los archivos de producción
+### Regenerating the production files
 
-Con `kicad-cli` (KiCad 10), desde la raíz del repositorio:
+With `kicad-cli` (KiCad 10), from the repository root:
 
 ```bash
-kicad-cli pcb export gerbers --layers F.Cu,B.Cu,F.SilkS,B.SilkS,F.Mask,B.Mask,F.Paste,Edge.Cuts -o fabricacion/gerbers/ rele-esp12f.kicad_pcb
+kicad-cli pcb export gerbers --layers F.Cu,B.Cu,F.SilkS,B.SilkS,F.Mask,B.Mask,F.Paste,Edge.Cuts -o fabrication/gerbers/ rele-esp12f.kicad_pcb
 ```
 
 ```bash
-kicad-cli pcb export drill --format excellon --excellon-units mm --excellon-separate-th --excellon-zeros-format decimal -o fabricacion/gerbers/ rele-esp12f.kicad_pcb
+kicad-cli pcb export drill --format excellon --excellon-units mm --excellon-separate-th --excellon-zeros-format decimal -o fabrication/gerbers/ rele-esp12f.kicad_pcb
 ```
 
 ```bash
-kicad-cli pcb render --side top -w 1592 -h 904 --background opaque --quality basic --zoom 0.9954 -o docs/pcb_superior.png rele-esp12f.kicad_pcb
+kicad-cli pcb render --side top -w 1592 -h 904 --background opaque --quality basic --zoom 0.9954 -o docs/pcb_top.png rele-esp12f.kicad_pcb
 ```
 
 ```bash
-kicad-cli pcb render --side bottom -w 1592 -h 904 --background opaque --quality basic --zoom 0.9954 -o docs/pcb_inferior.png rele-esp12f.kicad_pcb
+kicad-cli pcb render --side bottom -w 1592 -h 904 --background opaque --quality basic --zoom 0.9954 -o docs/pcb_bottom.png rele-esp12f.kicad_pcb
 ```
 
-Se usan estas opciones explícitas porque los ajustes de trazado guardados en la placa generan extensiones `.gbr` y una capa B.Paste innecesaria. El ZIP contiene los 11 archivos de `fabricacion/gerbers/` más `CPL_JLCPCB.csv`.
+These explicit options are needed because the plot settings stored in the board produce `.gbr` extensions and an unnecessary B.Paste layer. The ZIP contains the 11 files in `fabrication/gerbers/` plus `CPL_JLCPCB.csv`.
 
-## Primer grabado del firmware
+## First firmware flashing
 
-1. **Desconecta la placa de la red.**
-2. Conecta un adaptador USB-serie con **lógica de 3,3 V** a J3: TX↔RX, RX↔TX, GND y su salida de **5 V (VBUS)** al pin 5V.
-3. Mantén pulsado SW1 (GPIO0) mientras pulsas y sueltas SW2 (RST) para entrar en modo de grabado.
-4. Graba el firmware. Las actualizaciones posteriores se hacen por OTA.
+1. **Disconnect the board from mains.**
+2. Connect a USB-serial adapter with **3.3 V logic** to J3: TX↔RX, RX↔TX, GND, and its **5 V (VBUS)** output to the 5V pin.
+3. Hold SW1 (GPIO0) while pressing and releasing SW2 (RST) to enter flashing mode.
+4. Flash the firmware. Later updates are done over the air (OTA).
 
-J3 se alimenta a 5 V y no a 3,3 V por dos motivos. El diodo interno del AMS1117 entre salida y entrada haría que el adaptador cargase también el rail de 5 V. Además, el pin de 3,3 V de un adaptador típico no aguanta los picos de corriente del ESP8266 al calibrar la radio.
+J3 is powered at 5 V rather than 3.3 V for two reasons. The internal output-to-input diode of the AMS1117 would make the adapter also feed the 5 V rail. In addition, the 3.3 V pin of a typical adapter cannot supply the current peaks the ESP8266 draws while calibrating its radio.
 
-El firmware no forma parte de este repositorio.
+Firmware is not part of this repository. The [datasheet](docs/rele-esp12f_datasheet_user_guide.pdf) includes example configurations for Tasmota and ESPHome.
 
-## Chasis
+## Enclosure
 
-La carpeta [`chasis/`](chasis/) contiene una caja de dos piezas (base y tapa atornillada) para impresión 3D en PETG o ASA/ABS. Está generada con un script paramétrico de FreeCAD y su interferencia con el modelo 3D de la placa montada es nula. Detalles de diseño, impresión y montaje en [`chasis/README.md`](chasis/README.md).
+The [`enclosure/`](enclosure/) folder contains a two-part enclosure (base and screwed lid) for 3D printing in PETG or ASA/ABS. It is generated by a parametric FreeCAD script, and its interference with the 3D model of the assembled board is zero. Design, printing and assembly details are in [`enclosure/README.md`](enclosure/README.md).
 
 <p align="center">
-  <img src="chasis/img/chasis_cerrado.png" alt="Chasis cerrado" width="49%">
-  <img src="chasis/img/chasis_abierto_con_pcb.png" alt="Chasis abierto con la placa" width="49%">
+  <img src="enclosure/img/enclosure_closed.png" alt="Closed enclosure" width="49%">
+  <img src="enclosure/img/enclosure_open_with_pcb.png" alt="Open enclosure with the board" width="49%">
 </p>
 
-## Verificación del diseño
+## Design verification
 
-Resultados con `kicad-cli` 10.0.5 y las zonas rellenadas de nuevo:
+Results with `kicad-cli` 10.0.5, with all zones refilled:
 
-| Comprobación | Errores | Avisos | Detalle de los avisos |
+| Check | Errors | Warnings | Warning details |
 |---|:-:|:-:|---|
-| DRC | **0** | 29 | 23 huellas modificadas respecto a la librería (taladros de J1/RV1 y modelos 3D propios); 6 de serigrafía de PS1/J1 junto a las esquinas redondeadas |
-| Paridad esquemático ↔ PCB | **0** | 34 | 32 campos LCSC/montaje no copiados a las huellas; 2 taladros de fijación sin símbolo |
-| ERC | **0** | 9 | Extremos fuera de rejilla y símbolos distintos de la librería |
-| Pads sin conectar | **0** | — | |
+| DRC | **0** | 29 | 23 footprints modified from the library (J1/RV1 drills and custom 3D models); 6 PS1/J1 silkscreen items next to the rounded corners |
+| Schematic ↔ PCB parity | **0** | 34 | 32 LCSC/assembly fields not copied to footprints; 2 mounting holes without a symbol |
+| ERC | **0** | 9 | Off-grid endpoints and symbols that differ from the library |
+| Unconnected pads | **0** | — | |
 
-Ningún aviso afecta a la fabricación. Separaciones medidas: cobre de red ↔ baja tensión ≥ 4,35 mm en ambas caras; cobre de red ↔ borde ≥ 2,0 mm.
+None of the warnings affects manufacturing. Measured clearances: mains copper ↔ low voltage ≥ 4.35 mm on both sides; mains copper ↔ board edge ≥ 2.0 mm.
 
-## Seguridad
+## Safety
 
-- **Red de 110–120 VAC.** El varistor 07D221K está dimensionado para esa tensión. Para 230 VAC hay que sustituirlo (p. ej. por un 07D471K). F1 sirve para ambas tensiones.
-- **La carga no pasa por F1**, que solo protege a la fuente. Instala aguas arriba un magnetotérmico o un fusible de **≤ 10 A** dedicado a esta salida. Un fusible de placa no tiene poder de corte suficiente para un cortocircuito de red.
-- **Nunca conectes J3 con la placa conectada a la red.**
-- Monta la placa en una **caja aislante**: el cobre de red queda a 2 mm del borde.
-- Usa solo **MH1 y MH2** (zona de baja tensión) para tornillería metálica: M2 con cabeza o arandela de Ø ≤ 5 mm.
-- El chasis impreso proporciona protección mecánica y contra contactos, pero **no está certificado**. Para una instalación fija, imprímelo en un material ignífugo o alójalo en una caja de registro homologada.
+- **110–120 VAC mains.** The 07D221K varistor is rated for that voltage. For 230 VAC it must be replaced (e.g. with a 07D471K). F1 is suitable for both voltages.
+- **The load current does not flow through F1**, which only protects the supply. Install a circuit breaker or fuse of **≤ 10 A** upstream, dedicated to this output. An on-board fuse would not have enough breaking capacity for a mains short circuit.
+- **Never connect J3 while the board is connected to mains.**
+- Mount the board in an **insulating enclosure**: mains copper is 2 mm from the board edge.
+- Use only **MH1 and MH2** (low-voltage zone) for metal hardware: M2 screws with a head or washer of Ø ≤ 5 mm.
+- The printed enclosure provides mechanical and contact protection, but it is **not certified**. For a permanent installation, print it in a flame-retardant material or place it inside an approved electrical junction box.
 
-## Documentación
+## Documentation
 
-| Documento | Contenido |
+| Document | Contents |
 |---|---|
-| [Hoja de datos y guía de usuario](docs/rele-esp12f_datasheet_guia_usuario.pdf) | Especificaciones, funcionamiento, instalación y criterios de diseño |
-| [Esquemático](docs/esquematico.pdf) | Esquemático completo en PDF |
-| [Hojas de datos](docs/datasheets/) | Omron G5RL, AMS1117, ESP8266EX, ESP-WROOM-02 y guía de diseño hardware de Espressif |
-| [Historial de cambios](CHANGELOG.md) | Revisiones del hardware y criterios de cada cambio |
-| [Chasis](chasis/README.md) | Diseño, impresión y montaje de la caja |
+| [Datasheet and user guide](docs/rele-esp12f_datasheet_user_guide.pdf) | Specifications, operation, installation and design rationale |
+| [Schematic](docs/schematic.pdf) | Full schematic in PDF |
+| [Datasheets](docs/datasheets/) | Omron G5RL, AMS1117, ESP8266EX, ESP-WROOM-02 and the Espressif hardware design guidelines |
+| [Changelog](CHANGELOG.md) | Hardware revisions and the rationale behind each change |
+| [Enclosure](enclosure/README.md) | Enclosure design, printing and assembly |
 
-La hoja de datos se regenera con `python scripts/generar_datasheet.py` (requiere ReportLab, PyMuPDF, Pillow y `kicad-cli`).
+The datasheet is regenerated with `python scripts/generate_datasheet.py` (requires ReportLab, PyMuPDF, Pillow and `kicad-cli`).
 
-## Licencia
+## License
 
-Hardware publicado bajo la **CERN Open Hardware Licence v2 – Weakly Reciprocal** ([CERN-OHL-W-2.0](LICENSE)).
+Hardware released under the **CERN Open Hardware Licence v2 – Weakly Reciprocal** ([CERN-OHL-W-2.0](LICENSE)).
 
-Inspirado en [aman983/ESP-01S_Relay_Module](https://github.com/aman983/ESP-01S_Relay_Module). Es un diseño nuevo que no incluye archivos del original.
+Inspired by [aman983/ESP-01S_Relay_Module](https://github.com/aman983/ESP-01S_Relay_Module). This is a new design and contains no files from the original.
 
 ---
 

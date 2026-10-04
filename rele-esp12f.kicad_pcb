@@ -2299,7 +2299,7 @@
 				)
 			)
 		)
-		(property "Value" "LED WiFi (azul)"
+		(property "Value" "LED WiFi (blue)"
 			(at 0 1.43 0)
 			(layer "F.Fab")
 			(uuid "f37cbd7d-b2df-4fa5-986d-9909e509f09a")
@@ -6154,7 +6154,7 @@
 				)
 			)
 		)
-		(property "Value" "LED relay (rojo)"
+		(property "Value" "LED relay (red)"
 			(at 0.5 2.5 90)
 			(layer "F.Fab")
 			(uuid "92715fa1-021e-4cb7-8714-87a0f860aa71")
@@ -9572,7 +9572,7 @@
 			)
 		)
 	)
-	(gr_text "PELIGRO: 110 VAC"
+	(gr_text "DANGER: 110 VAC"
 		(at 109 130.9 0)
 		(layer "F.SilkS")
 		(uuid "7b9d9029-44dc-492c-9778-6c64c8d7a9a6")
