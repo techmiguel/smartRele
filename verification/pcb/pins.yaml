@@ -1,0 +1,17 @@
+# Critical pins copied from the DATASHEET (not from the schematic). Prefix ~ means regex.
+# U1 AMS1117-3.3, SOT-223 (AMS datasheet, docs/datasheets/ams1117.pdf): 1 GND/ADJ, 2 VOUT (= tab), 3 VIN
+U1: {1: GND, 2: "+3V3", 3: "+5V"}
+# Q1 SS8050, SOT-23 (JSCJ datasheet, LCSC C2150): 1 base, 2 emitter, 3 collector
+Q1: {1: "~.*Q1-B.*", 2: GND, 3: "~/?COIL_N"}
+# U2 ESP-12F (Ai-Thinker ESP-12F datasheet, pinout table): 1 RST, 3 EN, 8 VCC, 15 GND,
+# 16 GPIO15, 17 GPIO2, 18 GPIO0, 19 GPIO4, 20 GPIO5, 21 RXD, 22 TXD; 9-14 internal SPI flash (must stay NC)
+U2: {1: "~/?RST", 3: "~/?EN", 8: "+3V3", 15: GND, 16: "~/?GPIO15", 17: "~/?GPIO2", 18: "~/?GPIO0",
+     19: "~/?WIFI_LED", 20: "~/?RELAY", 21: "~/?RXD", 22: "~/?TXD",
+     9: "~unconnected.*", 10: "~unconnected.*", 11: "~unconnected.*", 12: "~unconnected.*",
+     13: "~unconnected.*", 14: "~unconnected.*"}
+# PS1 HLK-PM01 (Hi-Link datasheet): 1/2 AC input, 3 -Vo, 4 +Vo
+PS1: {1: "~/?L_F", 2: "~/?N", 3: GND, 4: "+5V"}
+# K1 Omron G5RL-1A-E (docs/datasheets/omron_g5rl.pdf): A1/A2 coil, 13/14 NO contact (each on two pins)
+K1: {A1: "~/?COIL_N", A2: "+5V", 13: "~/?L_IN", 14: "~/?L_OUT"}
+# D1 1N4148W SOD-123: 1 cathode (band) to +5V, 2 anode to the coil low side (flyback)
+D1: {1: "+5V", 2: "~/?COIL_N"}

@@ -1,0 +1,12 @@
+# Project requirements. Inherits kicad-verify's base requirements (see `kicadverify requirements`).
+params:
+  # MH1/MH2 must match the M2 standoffs of enclosure/generate_enclosure.py (MH = (51.2, 8.4), (63.9, 2.6) from the bottom-left corner)
+  mounting_holes: {drill_mm: 2.2, tol_mm: 0.1, expected: [[151.2, 140.6], [163.9, 146.4]]}
+  # min_power_width_mm: 0.4
+  # net_voltages: {"/VIN": 12}
+  # mounting_holes: {drill_mm: 3.2, tol_mm: 0.1, expected: [[10, 10], [90, 10]]}
+  # interface: {step_user_origin: "100x149mm"}
+requirements: []
+  # - {id: PRJ-001, method: model, text: "Relay contacts rated for 10 A at 250 VAC"}
+disable: []
+  # - PCB-PINS-001

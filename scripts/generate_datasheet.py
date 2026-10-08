@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Generates docs/rele-esp12f_datasheet_user_guide.pdf
 
-Datasheet + user guide for the rele-esp12f module (hardware v3).
+Datasheet + user guide for the rele-esp12f module (hardware v3.1).
 Requires: reportlab, PyMuPDF (fitz), Pillow and kicad-cli 10 (for the layer views
 and the schematic). Usage:  python scripts/generate_datasheet.py
 """
@@ -27,9 +27,9 @@ OUT = os.path.join(PRJ, 'docs', 'rele-esp12f_datasheet_user_guide.pdf')
 KICAD_CLI = r'C:\Program Files\KiCad\10.0\bin\kicad-cli.exe'
 PCB = os.path.join(PRJ, 'rele-esp12f.kicad_pcb')
 SCH = os.path.join(PRJ, 'rele-esp12f.kicad_sch')
-DOC_REV = 'B'
-DOC_DATE = '2026-10-04'
-HW_REV = 'v3'
+DOC_REV = 'C'
+DOC_DATE = '2026-10-08'
+HW_REV = 'v3.1'
 
 # ---------------------------------------------------------------- fonts
 F = r'C:\Windows\Fonts'
@@ -351,11 +351,14 @@ def mech_drawing():
 
     g.add(Rect(X(0), Y(BH), BW * s, BH * s, rx=2 * s, ry=2 * s, fillColor=colors.HexColor('#f2f6f2'),
                strokeColor=INK, strokeWidth=1.1))
-    # antenna (approx.)
-    g.add(Rect(X(159.5 - 100), Y(117.5 - 100), 7.0 * s, 17.5 * s, fillColor=colors.HexColor('#fff3c4'),
+    # board cut-out under the antenna (x 58.9-66.5, y 0-18.7 mm; 1 mm fillets omitted)
+    g.add(Rect(X(58.9), Y(18.7), 8.6 * s, 19.7 * s, fillColor=colors.white, strokeColor=None))
+    g.add(PolyLine([X(58.9), Y(0), X(58.9), Y(18.7), X(66.5), Y(18.7)], strokeColor=INK, strokeWidth=1.1))
+    # antenna (overhangs the cut-out)
+    g.add(Rect(X(158.9 - 100), Y(117.6 - 100), 7.0 * s, 16.0 * s, fillColor=colors.HexColor('#fff3c4'),
                strokeColor=AMB, strokeDashArray=[2, 2], strokeWidth=0.7))
-    lbl(g, X(63.0), Y(9.5), 'antenna', 6.2, AMB, 'middle', 'Sans-B')
-    lbl(g, X(63.0), Y(12.2), '(approx.)', 5.6, AMB, 'middle')
+    lbl(g, X(62.4), Y(9.0), 'antenna', 6.2, AMB, 'middle', 'Sans-B')
+    lbl(g, X(62.4), Y(11.7), '(no PCB)', 5.6, AMB, 'middle')
     # approximate mains zone (label)
     lbl(g, X(14), Y(31), 'mains zone', 6.6, RED, 'middle', 'Sans-B')
     # components
@@ -525,7 +528,7 @@ def content(a):
     A(Paragraph('Part I', sPart))
     A(P('<font size="15" color="#5b6b7a">Technical datasheet</font>', S('x', leading=22)))
     A(Spacer(1, 6))
-    A(P('Electrical, functional and design specifications of the rele-esp12f module, hardware revision v3.', sBodyL))
+    A(P('Electrical, functional and design specifications of the rele-esp12f module, hardware revision v3.1.', sBodyL))
     A(Spacer(1, 30 * mm))
     A(P('<b>How to read this document.</b> <b>Part I</b> is the datasheet: limits, characteristics, '
         'functional description and design rationale of the board. <b>Part II</b> is the user guide: '
@@ -677,7 +680,7 @@ def content(a):
     A(Paragraph('2.5 Mechanical and environmental characteristics', sH2))
     A(table([
         ['Parameter', 'Value', 'Source'],
-        ['Board dimensions', '66.5 × 49.0 mm, R2 mm corners', '[M]'],
+        ['Board dimensions', '66.5 × 49.0 mm, R2 mm corners; 7.6 × 18.7 mm cut-out in the top-right corner under the antenna', '[M]'],
         ['Thickness / material', '1.6 mm, FR-4, 2 layers, 35 µm (1 oz) copper on both sides', '[M]'],
         ['Height above the top side', '≈ 16 mm (relay 15.7 mm max. [D]; HLK-PM01 ≈ 15 mm [F])', '[E]'],
         ['Height below the board', '≈ 2 mm (THT leads trimmed after wave soldering)', '[E]'],
@@ -688,7 +691,7 @@ def content(a):
         ['Shock (relay)', '100 m/s² malfunction; 1,000 m/s² destruction', '[D]'],
     ], [3, 8, 1]))
     A(fig(mech_drawing(), 'Figure 3. Mechanical drawing and interface elements (top view, dimensions in mm). '
-          'The antenna area is approximate; it is drawn from the ESP-12F footprint outline.'))
+          'The antenna area is drawn from the ESP-12F footprint outline; the board is cut out below it.'))
     A(PageBreak())
 
     # ---- 3. Functional description
@@ -821,7 +824,7 @@ def content(a):
         'board. The full schematic is on the following page.'))
     A(Paragraph('5.1 Board partitioning', sH2))
     E(bullets([
-        '<b>Top strip:</b> PS1 on the left and the ESP-12F rotated 270° with its antenna on the right edge, over a copper-free area (footprint keep-out).',
+        '<b>Top strip:</b> PS1 on the left and the ESP-12F rotated 270° with its antenna overhanging a cut-out in the top-right corner of the board (no FR-4 and no copper below it).',
         '<b>Bottom left, mains zone:</b> J1 on the bottom edge, F1 and RV1 above it and K1 to its right. No GND plane or low-voltage trace enters this zone.',
         '<b>Bottom right, low voltage:</b> U1 and its capacitors, C1, relay driver, push buttons, LEDs, J3 and the two mounting holes.',
         '<b>GND planes</b> on both sides, clipped by a polygon that geometrically stays ≥ 4.5 mm from all mains copper. The clearance therefore does not rely solely on correctly assigned net classes.',
@@ -844,7 +847,10 @@ def content(a):
         'Omron requires both to be used [D]; on the board each pair is joined by the power trace. N, L_F and the '
         'branch to the fuse are 1.0 mm, enough for the 500 mA maximum of PS1.'))
     A(Paragraph('5.4 Radio frequency', sH2))
-    A(P('The ESP-12F printed antenna overhangs towards the right edge with no copper underneath on any layer. '
+    A(P('The ESP-12F printed antenna overhangs a 7.6 × 18.7 mm cut-out in the top-right corner, so there is '
+        'neither copper nor FR-4 below it, as the Espressif hardware design guidelines recommend: the base-board '
+        'dielectric would detune the antenna and add loss. Only the module ground area sits on the board, and its '
+        'feed point is at the edge of the cut-out. '
         'A +3V3 branch that ran next to the keep-out and split the GND plane under the module was removed. '
         'J3 is ≈ 10 mm from the antenna. In the installation, the enclosure and wiring must not cover that area '
         '(§11.2).'))
@@ -952,7 +958,7 @@ def content(a):
         ['DANGER: 110 VAC', 'Marks the mains zone.'],
         ['N · OUT · L (next to J1)', 'Neutral, switched output, input line.'],
         ['IO0 TX GND / RST RX 5V (next to J3)', 'Programming header pinout.'],
-        ['rele-esp12f v3', 'Hardware revision identifier.'],
+        ['rele-esp12f v3.1', 'Hardware revision identifier.'],
     ], [4, 8]))
 
     # ---- 9. Required material
@@ -1291,7 +1297,9 @@ Life (years) = 50,000 operations / (operations_per_day x 365)
         ['Hardware v2', '2026-09-30', '66.5 × 44 mm board, 110 VAC; new layout, 2×3 J3, GND planes with an isolation polygon, single-sided assembly.'],
         ['Hardware v3', '2026-10-03', 'Omron G5RL-1A-E-HR relay (16 A, reinforced insulation); 66.5 × 49 mm board; C7/C8 delay on EN/RST; C9 10 µF next to the ESP-12F; J3 powered at 5 V; L_IN/L_OUT duplicated on both sides (10 A); mains copper ≥ 2 mm from the edge; adjusted J1/RV1 drills; full assembly at JLCPCB.'],
         ['Document rev. A', '2026-10-03', 'First edition of the datasheet and user guide (Spanish).'],
-        ['Document rev. B', DOC_DATE, 'English edition; silkscreen and schematic labels updated to English.'],
+        ['Hardware v3.1', '2026-10-08', 'Board cut-out under the ESP-12F antenna (Espressif guideline); MPN/manufacturer fields on every part; F1 symbol on the schematic grid. Circuit, placement and routing unchanged.'],
+        ['Document rev. B', '2026-10-04', 'English edition; silkscreen and schematic labels updated to English.'],
+        ['Document rev. C', DOC_DATE, 'Updated for hardware v3.1.'],
     ], [2.2, 1.8, 8.6]))
     return st
 
@@ -1300,7 +1308,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         a = build_assets(tmp)
         doc = Doc(OUT, pagesize=A4, title='rele-esp12f — Datasheet and user guide',
-                  author='@techmigue', subject='ESP-12F Wi-Fi relay module 110–120 VAC, hardware v3',
+                  author='@techmigue', subject='ESP-12F Wi-Fi relay module 110–120 VAC, hardware v3.1',
                   creator='scripts/generate_datasheet.py (ReportLab)',
                   leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=17 * mm)
         fr = Frame(18 * mm, 17 * mm, A4[0] - 36 * mm, A4[1] - 35 * mm, id='f', leftPadding=0, rightPadding=0,

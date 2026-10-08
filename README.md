@@ -38,7 +38,7 @@ A 2-layer, **66.5 × 49 mm** board that switches a mains load of up to **10 A** 
 - [License](#license)
 
 ## Features
-- **ESP-12F** with the antenna at the board edge and a copper-free area underneath.
+- **ESP-12F** with its PCB antenna overhanging a cut-out in the top-right corner: no copper and no FR-4 below it, as the Espressif hardware design guidelines recommend.
 - **Omron G5RL-1A-E-HR relay** (SPST-NO, 16 A / 250 VAC) with 8 mm coil-to-contact separation (reinforced insulation per the manufacturer).
 - **Strict mains / low-voltage zoning** enforced by custom design rules: 4 mm between mains and low voltage, 2 mm between mains nets. Measured minimum clearance: 4.35 mm.
 - **Duplicated power path** on both sides (2 × 2.5 mm, 35 µm), sized for 10 A with a ~12 °C temperature rise (IPC-2221).
@@ -60,7 +60,7 @@ A 2-layer, **66.5 × 49 mm** board that switches a mains load of up to **10 A** 
 | Regulator | AMS1117-3.3 |
 | Microcontroller | ESP8266 (ESP-12F module), Wi-Fi 802.11 b/g/n |
 | Protection | F1 T500mA 250 V (supply branch) · RV1 07D221K |
-| PCB | 66.5 × 49 × 1.6 mm, 2 layers, 35 µm copper |
+| PCB | 66.5 × 49 × 1.6 mm, 2 layers, 35 µm copper; 7.6 × 18.7 mm cut-out under the antenna |
 | Assembly | Single-sided; 32 components, all factory-assembled |
 | Mounting holes | 2 × M2 (MH1, MH2), in the low-voltage zone |
 
@@ -81,7 +81,7 @@ The full datasheet, with test conditions and the source of each value, is in [`d
 
 - **Mains zone** (bottom left): J1, F1, RV1, K1 and the PS1 input.
 - **Low-voltage zone** (right): U1 and its capacitors, relay driver, LEDs, push buttons, J3 and mounting holes. GND planes on both sides, restricted to this zone.
-- **Top strip**: PS1 on the left and the ESP-12F with its antenna on the right edge.
+- **Top strip**: PS1 on the left and the ESP-12F with its antenna over the corner cut-out on the right edge.
 
 The full schematic is in [`docs/schematic.pdf`](docs/schematic.pdf).
 
@@ -224,12 +224,12 @@ Results with `kicad-cli` 10.0.5, with all zones refilled:
 
 | Check | Errors | Warnings | Warning details |
 |---|:-:|:-:|---|
-| DRC | **0** | 29 | 23 footprints modified from the library (J1/RV1 drills and custom 3D models); 6 PS1/J1 silkscreen items next to the rounded corners |
-| Schematic ↔ PCB parity | **0** | 34 | 32 LCSC/assembly fields not copied to footprints; 2 mounting holes without a symbol |
-| ERC | **0** | 9 | Off-grid endpoints and symbols that differ from the library |
+| DRC | **0** | 31 | 23 footprints modified from the library (J1/RV1 drills and custom 3D models; pads otherwise identical); 8 silkscreen items clipped by the edge (PS1/J1 at the rounded corners, U2 outline over the antenna cut-out) |
+| Schematic ↔ PCB parity | **0** | 0 | |
+| ERC | **0** | 6 | Embedded symbols that differ from the KiCad 10 library (pinout checked against the datasheets) |
 | Unconnected pads | **0** | — | |
 
-None of the warnings affects manufacturing. Measured clearances: mains copper ↔ low voltage ≥ 4.35 mm on both sides; mains copper ↔ board edge ≥ 2.0 mm.
+None of the warnings affects manufacturing. The [kicad-verify](https://github.com/techmiguel/kicad-verify) gate (`verification/pcb/`) also checks the pinout of U1, U2, Q1, PS1, K1 and D1 against their datasheets, the mounting holes against the enclosure, and the consistency of the Gerbers, drill files, BOM and CPL with the board. Measured clearances: mains copper ↔ low voltage ≥ 4.35 mm on both sides; mains copper ↔ board edge ≥ 2.0 mm.
 
 ## Safety
 

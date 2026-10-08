@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "Wi-Fi Relay Module ESP-12F 110 VAC")
-		(date "2026-10-03")
-		(rev "v3")
+		(date "2026-10-08")
+		(rev "v3.1")
 		(company "@techmigue")
 		(comment 1 "Inspired by aman983/ESP-01S_Relay_Module (new design)")
 		(comment 2 "Hardware: CERN-OHL-W v2")
@@ -4887,8 +4887,8 @@
 	)
 	(wire
 		(pts
-			(xy 33.528 40.64)
-			(xy 36.068 40.64)
+			(xy 33.02 40.64)
+			(xy 35.56 40.64)
 		)
 		(stroke
 			(width 0)
@@ -4942,8 +4942,8 @@
 	)
 	(wire
 		(pts
-			(xy 25.908 40.64)
-			(xy 23.368 40.64)
+			(xy 25.4 40.64)
+			(xy 22.86 40.64)
 		)
 		(stroke
 			(width 0)
@@ -5907,7 +5907,7 @@
 		(uuid "1acb58c2-01f0-433c-bd42-88f982f1e9dd")
 	)
 	(label "L_IN"
-		(at 36.068 40.64 0)
+		(at 35.56 40.64 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5917,7 +5917,7 @@
 		(uuid "1fd08d7d-2de7-4a4a-942a-70ff744eec1c")
 	)
 	(label "L_F"
-		(at 23.368 40.64 180)
+		(at 22.86 40.64 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6086,6 +6086,28 @@
 			)
 		)
 		(property "LCSC" "C14663"
+			(at 189.23 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CC0603KRX7R9BB104"
+			(at 189.23 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
 			(at 189.23 34.29 0)
 			(hide yes)
 			(show_name no)
@@ -6283,6 +6305,28 @@
 				)
 			)
 		)
+		(property "MPN" "ERR1AM471E11OT"
+			(at 166.37 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "AISHI"
+			(at 166.37 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(body_style 1)
 		(in_pos_files yes)
 		(pin "1"
@@ -6440,6 +6484,28 @@
 			)
 		)
 		(property "LCSC" "C25804"
+			(at 101.6 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 101.6 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 101.6 82.55 0)
 			(hide yes)
 			(show_name no)
@@ -6932,6 +6998,28 @@
 				)
 			)
 		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 88.9 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 88.9 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 88.9 82.55 0)
 			(hide yes)
@@ -7343,7 +7431,7 @@
 	)
 	(symbol
 		(lib_id "Device:Fuse")
-		(at 29.718 40.64 270)
+		(at 29.21 40.64 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -7351,7 +7439,7 @@
 		(dnp no)
 		(uuid "532ce779-d051-5350-8e1d-7c6776fb505c")
 		(property "Reference" "F1"
-			(at 30.226 37.846 90)
+			(at 29.718 37.846 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7362,7 +7450,7 @@
 			)
 		)
 		(property "Value" "T500mA 250V"
-			(at 22.86 43.18 90)
+			(at 22.352 43.18 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7373,7 +7461,7 @@
 			)
 		)
 		(property "Footprint" "Fuse:Fuse_Littelfuse_395Series"
-			(at 29.718 40.64 0)
+			(at 29.21 40.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7384,7 +7472,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 29.718 40.64 0)
+			(at 29.21 40.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7395,7 +7483,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 29.718 40.64 0)
+			(at 29.21 40.64 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7405,7 +7493,7 @@
 			)
 		)
 		(property "Assembly" "JLCPCB"
-			(at 29.718 40.64 0)
+			(at 29.21 40.64 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7416,8 +7504,30 @@
 			)
 		)
 		(property "LCSC" "C2762401"
-			(at 29.718 40.64 0)
+			(at 29.21 40.64 0)
 			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "MTS0500A"
+			(at 29.21 40.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Reomax"
+			(at 29.21 40.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7591,6 +7701,28 @@
 				)
 			)
 		)
+		(property "MPN" "TS-1187A-B-A-B"
+			(at 100.33 109.22 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "XKB Connection"
+			(at 100.33 109.22 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 100.33 109.22 0)
 			(hide yes)
@@ -7693,6 +7825,28 @@
 				)
 			)
 		)
+		(property "MPN" "CL21A226MAQNNNE"
+			(at 179.07 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 179.07 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 179.07 34.29 0)
 			(hide yes)
@@ -7785,6 +7939,28 @@
 			)
 		)
 		(property "LCSC" "C51933294"
+			(at 130.81 163.83 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "GL0603UB01"
+			(at 130.81 163.83 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Guiguang light"
 			(at 130.81 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -8202,6 +8378,28 @@
 				)
 			)
 		)
+		(property "MPN" "KT-0603R"
+			(at 114.3 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Hubei KENTO Elec"
+			(at 114.3 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 114.3 154.94 0)
 			(hide yes)
@@ -8294,6 +8492,28 @@
 			)
 		)
 		(property "LCSC" "C22962"
+			(at 130.81 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF2200T5E"
+			(at 130.81 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 130.81 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -8482,6 +8702,28 @@
 				)
 			)
 		)
+		(property "MPN" "CC0603KRX7R9BB104"
+			(at 210.82 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 210.82 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 210.82 34.29 0)
 			(hide yes)
@@ -8594,6 +8836,28 @@
 				)
 			)
 		)
+		(property "MPN" "G5RL-1A-E-HR DC5"
+			(at 95.25 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Omron"
+			(at 95.25 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(body_style 1)
 		(in_pos_files yes)
 		(pin "1"
@@ -8684,6 +8948,28 @@
 			)
 		)
 		(property "LCSC" "C81598"
+			(at 63.5 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "1N4148W"
+			(at 63.5 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "ST(Semtech)"
 			(at 63.5 139.7 0)
 			(hide yes)
 			(show_name no)
@@ -8799,6 +9085,28 @@
 		(property "LCSC" "C82891"
 			(at 48.26 92.71 0)
 			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "ESP-12F"
+			(at 48.26 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Ai-Thinker"
+			(at 48.26 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9108,6 +9416,28 @@
 				)
 			)
 		)
+		(property "MPN" "SS8050"
+			(at 60.96 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "JSCJ"
+			(at 60.96 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 60.96 154.94 0)
 			(hide yes)
@@ -9213,6 +9543,28 @@
 				)
 			)
 		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 50.8 163.83 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 50.8 163.83 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 50.8 163.83 0)
 			(hide yes)
@@ -9305,6 +9657,28 @@
 			)
 		)
 		(property "LCSC" "C25804"
+			(at 128.27 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 128.27 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 128.27 82.55 0)
 			(hide yes)
 			(show_name no)
@@ -9645,6 +10019,28 @@
 				)
 			)
 		)
+		(property "MPN" "0603WAF1001T5E"
+			(at 41.91 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 41.91 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 41.91 154.94 0)
 			(hide yes)
@@ -9750,6 +10146,28 @@
 		(property "LCSC" "C209903"
 			(at 59.69 30.48 0)
 			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "HLK-PM01"
+			(at 59.69 30.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "HI-LINK"
+			(at 59.69 30.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9929,6 +10347,28 @@
 				)
 			)
 		)
+		(property "MPN" "CC0603KRX7R9BB104"
+			(at 220.98 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 220.98 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 220.98 34.29 0)
 			(hide yes)
@@ -10021,6 +10461,28 @@
 			)
 		)
 		(property "LCSC" "C21190"
+			(at 114.3 163.83 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF1001T5E"
+			(at 114.3 163.83 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 114.3 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -10199,6 +10661,28 @@
 			)
 		)
 		(property "LCSC" "C25804"
+			(at 138.43 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 138.43 81.28 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
 			(at 138.43 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -10396,6 +10880,28 @@
 				)
 			)
 		)
+		(property "MPN" "07D221K"
+			(at 29.21 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "hongjiacheng"
+			(at 29.21 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(body_style 1)
 		(in_pos_files yes)
 		(pin "1"
@@ -10496,6 +11002,28 @@
 				)
 			)
 		)
+		(property "MPN" "2.54-2*3P Pin header"
+			(at 132.08 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "BOOMELE"
+			(at 132.08 114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(body_style 1)
 		(in_pos_files yes)
 		(pin "1"
@@ -10589,6 +11117,28 @@
 			)
 		)
 		(property "LCSC" "C318884"
+			(at 101.6 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "TS-1187A-B-A-B"
+			(at 101.6 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "XKB Connection"
 			(at 101.6 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -10711,6 +11261,28 @@
 				)
 			)
 		)
+		(property "MPN" "WJ500V-5.08-03P-14-00A"
+			(at 31.75 30.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Ningbo Kangnex Elec"
+			(at 31.75 30.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(body_style 1)
 		(in_pos_files yes)
 		(pin "1"
@@ -10795,6 +11367,28 @@
 			)
 		)
 		(property "LCSC" "C45783"
+			(at 200.66 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL21A226MAQNNNE"
+			(at 200.66 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
 			(at 200.66 34.29 0)
 			(hide yes)
 			(show_name no)
@@ -11211,6 +11805,28 @@
 				)
 			)
 		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 115.57 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 115.57 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 115.57 82.55 0)
 			(hide yes)
@@ -11379,6 +11995,28 @@
 			)
 		)
 		(property "LCSC" "C6186"
+			(at 142.24 31.75 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "AMS1117-3.3"
+			(at 142.24 31.75 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Advanced Monolithic Systems"
 			(at 142.24 31.75 0)
 			(hide yes)
 			(show_name no)
@@ -11634,6 +12272,28 @@
 				)
 			)
 		)
+		(property "MPN" "CC0603KRX7R9BB104"
+			(at 190.5 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 190.5 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Assembly" "JLCPCB"
 			(at 190.5 85.09 0)
 			(hide yes)
@@ -11708,6 +12368,28 @@
 		(property "LCSC" "C14663"
 			(at 205.74 85.09 0)
 			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CC0603KRX7R9BB104"
+			(at 205.74 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 205.74 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11910,6 +12592,28 @@
 		(property "LCSC" "C19702"
 			(at 231.14 34.29 0)
 			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL10A106KP8NNNC"
+			(at 231.14 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 231.14 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)

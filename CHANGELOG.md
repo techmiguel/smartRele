@@ -2,6 +2,22 @@
 
 All notable hardware revisions are documented here, together with the engineering rationale behind each change.
 
+## [v3.1] — 2026-10-08
+
+### Changed
+- **Board cut-out under the ESP-12F antenna** (7.6 × 18.7 mm, top-right corner, 1 mm radii). The Espressif hardware design guidelines recommend placing the module's PCB antenna outside the base board or, failing that, cutting the board away below it. With FR-4 underneath, the extra dielectric (εr ≈ 4.4) lowers the antenna's resonant frequency and adds loss; the copper keep-out alone did not avoid that. The cut-out edge is 0.2 mm inside the antenna area so that the GPIO0 trace under the module keeps 0.475 mm to the edge (rule: 0.4 mm). Circuit, placement and routing are unchanged; the module is still held by its 22 pads.
+- **Revision v3.1** on the silkscreen and in the schematic title block.
+
+### Added
+- **MPN and Manufacturer fields** on every part (taken from the JLCPCB/LCSC records of the existing LCSC codes), copied to the footprints so the schematic and the PCB have no field differences. Stock checked at JLCPCB on 2026-10-08: every part available (F1: 82, K1: 192).
+- **3D models for C7, C8 and J3**, so the board STEP and the enclosure fit check include every part.
+- **`verification/pcb/`**: configuration for the kicad-verify gate (pinout from the datasheets, mounting holes, design intent).
+
+### Fixed
+- **K1 rotation in the CPL: 270° → 180°.** JLCPCB places the part with the EasyEDA footprint of C113250, which at 0° has the coil pins (1, 8) on the left and the contacts 20/25 mm to the right. On this board the coil is on the right (low-voltage side) and the contacts on the left, so the part must be turned 180°. The KiCad footprint and 3D model were already correct: the G5RL hole pattern only fits one way.
+- **F1 symbol on the 1.27 mm schematic grid** (it was 0.508 mm off, together with its two wires and labels), which removes the off-grid ERC warnings.
+- **MH1/MH2 marked as board-only footprints**, so the parity check does not report them as extra footprints.
+
 ## [firmware 1.0.0] — 2026-10-04
 
 ### Added
