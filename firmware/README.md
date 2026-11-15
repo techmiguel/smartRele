@@ -1,8 +1,8 @@
 # SmartRele firmware · rele-esp12f
 
-Firmware v1.0.0 for the rele-esp12f board (ESP-12F / ESP8266). The relay is **controlled over Wi-Fi only**, from a built-in web interface or through a JSON REST API:
+Firmware v1.1.0 for the rele-esp12f board (ESP-12F / ESP8266). The relay is **controlled over Wi-Fi only**, from a built-in web interface or through a JSON REST API:
 
-- **Manual on / off.**
+- **Manual on / off**, with the time the output has been on in the current ON period.
 - **State-change timer**: after a delay (1 s to 7 days) it turns the relay on, off or toggles it.
 - **Cyclic ON/OFF routine**: on for one period and off for another, repeated indefinitely.
 - **Weekly schedules**: up to 16 rules of the form "at HH:MM, on these days, turn on/off/toggle".
@@ -33,6 +33,35 @@ First flashing through header J3 (see the [main README](../README.md#first-firmw
 pio run -e esp12f -t upload
 ```
 
+### Flashing with an ESP32-S3 DevKitC-1 as USB-serial bridge
+
+Any ESP32-S3 DevKitC-1 (or clone) with two USB ports, "USB" and "UART", can replace the USB-serial adapter. The S3 is held **in reset** (EN tied to GND), which leaves its GPIO43/44 in high impedance so that its on-board USB-UART chip (CP2102N or CH343) talks directly to the ESP-12F. Nothing is flashed on the S3.
+
+| ESP32-S3 DevKitC-1 | J3 (relay board) | Net | ESP-12F pad |
+|---|---|---|---|
+| EN → GND of the S3 itself | — | — | — |
+| GND | J3-1 (square pad) | GND | 15 |
+| 5V | J3-2 | +5V | — (through U1) |
+| TX (GPIO43) | J3-3 | TXD | 22 (TXD0) |
+| RX (GPIO44) | J3-4 | RXD | 21 (RXD0) |
+| — | J3-5, J3-6 (GPIO0, RST) | — | use SW1 / SW2 |
+
+- **TX goes to TX and RX to RX.** The DevKit labels name the S3 pins, not the bridge chip pins. The bridge transmits into the S3 RX (GPIO44) and receives from the S3 TX (GPIO43), so the crossover is already done on the DevKit.
+- Plug the cable into the **"UART"** port. The DevKit 5V pin (USB VBUS) powers the board; do not use its 3V3 pin.
+- Check the bridge first: with EN tied to GND, short TX to RX on the S3, open `pio device monitor -p COMx` and confirm that typed characters echo back.
+- DTR/RTS are not wired to J3, so enter flashing mode by hand: hold SW1, press and release SW2, release SW1. Do this before each command:
+
+```bash
+pio run -e esp12f -t erase --upload-port COMx
+```
+
+```bash
+pio run -e esp12f -t upload --upload-port COMx
+```
+
+- Then press SW2 to start the firmware. If the upload fails at 460800 baud, set `upload_speed = 115200` temporarily.
+- The web interface is embedded in the firmware, so `uploadfs` is not needed.
+
 Serial monitor (115200 baud), useful to see the IP address and relay events:
 
 ```bash
@@ -56,8 +85,8 @@ The relay keeps its state while the update is written. The restart that follows 
 
 1. With no network configured, the device creates the access point **`SmartRele-XXXXXX`** (password `smartrele`). The blue LED blinks fast.
 2. Join it from a phone. The setup page opens by itself; if it does not, browse to `http://192.168.4.1`.
-3. Under *Settings*, set an **admin password** (user `admin`, 8–32 characters) and the time zone.
-4. Under *Wi-Fi network*, pick the network, enter its password and press *Save and restart*.
+3. The main page only shows the on/off button, the time the output has been on and the timer. Everything else (cyclic routine, schedules, settings, Wi-Fi, system) is under **Advanced**. Under *Advanced → Settings*, set an **admin password** (user `admin`, 8–32 characters) and the time zone.
+4. Under *Advanced → Wi-Fi network*, pick the network, enter its password and press *Save and restart*.
 5. The device joins the network (blue LED steady) and is reachable at `http://smartrele-xxxxxx.local/` (mDNS) or at the IP address the router assigns (shown on the serial monitor and in the router).
 
 `XXXXXX` is the chip ID in hexadecimal, different on every board.

@@ -32,6 +32,7 @@ label{display:block;font-size:13px;color:var(--mu);margin:8px 0 3px}
 .sch .t{font-weight:600;font-variant-numeric:tabular-nums}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 table{width:100%;font-size:13px;border-collapse:collapse}td{padding:3px 0}td:last-child{text-align:right}
+summary{margin-top:20px;padding:8px 2px;color:var(--mu);font-size:14px;cursor:pointer}
 #msg{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 14px;border-radius:8px;display:none}
 </style></head><body><main>
 <h1 id="name">SmartRele</h1>
@@ -39,11 +40,7 @@ table{width:100%;font-size:13px;border-collapse:collapse}td{padding:3px 0}td:las
 
 <div class="card">
 <button id="relay" class="big" onclick="api('POST','/api/relay',{action:'toggle'})">--</button>
-<p class="mu" id="rinfo" style="margin:8px 0 0"></p>
-<div class="row" style="margin-top:8px">
-<button class="sec" onclick="api('POST','/api/relay',{action:'on'})">Turn on</button>
-<button class="sec" onclick="api('POST','/api/relay',{action:'off'})">Turn off</button>
-</div></div>
+<p class="mu" id="rinfo" style="margin:10px 0 0;text-align:center;font-variant-numeric:tabular-nums"></p></div>
 
 <div class="card"><h2>Timer</h2>
 <p class="mu" id="tinfo" style="margin:0 0 6px">Inactive</p>
@@ -57,6 +54,7 @@ table{width:100%;font-size:13px;border-collapse:collapse}td{padding:3px 0}td:las
 <div class="row" style="margin-top:10px"><button onclick="startTimer()">Start</button>
 <button class="sec" onclick="api('DELETE','/api/timer')">Cancel</button></div></div>
 
+<details><summary>Advanced</summary>
 <div class="card"><h2>Cyclic ON/OFF routine</h2>
 <p class="mu" id="cinfo" style="margin:0 0 6px">Inactive</p>
 <div class="row">
@@ -99,7 +97,7 @@ table{width:100%;font-size:13px;border-collapse:collapse}td{padding:3px 0}td:las
 <button class="sec" onclick="location.href='/update'">Update firmware</button>
 <button class="sec" onclick="if(confirm('Restart the device?'))api('POST','/api/reboot')">Restart</button></div>
 <button class="del" style="margin-top:8px;width:100%" onclick="if(confirm('Erase ALL settings?'))api('POST','/api/factory-reset')">Factory reset</button>
-</div>
+</div></details>
 </main><div id="msg"></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -123,8 +121,7 @@ function render(){
  $('clock').textContent=s.time.valid?s.time.local+(s.time.ntp?'':' (browser time)'):'No time';
  $('net').textContent=s.wifi.connected?s.wifi.ssid+' · '+s.wifi.ip:(s.wifi.ap?'AP mode '+s.wifi.apSsid:'No network');
  const b=$('relay');b.textContent=s.relay.on?'ON':'OFF';b.className='big'+(s.relay.on?' on':'');
- const src={manual:'manual',timer:'timer',schedule:'schedule',cycle:'cyclic routine',boot:'power-up'};
- $('rinfo').textContent='Last change: '+(src[s.relay.source]||s.relay.source)+', '+dur(s.relay.since)+' ago';
+ $('rinfo').textContent=s.relay.on?'On for '+dur(s.relay.since):'Off';
  $('tinfo').innerHTML=s.timer.active?'<span class="pill ok">Active</span> '+AN[s.timer.action]+' in '+dur(s.timer.remaining):'Inactive';
  $('cinfo').innerHTML=s.cycle.active?'<span class="pill ok">Active</span> '+(s.relay.on?'ON':'OFF')+', changes in '+dur(s.cycle.remaining)
   :'Inactive · last: '+dur(s.cycle.on)+' ON / '+dur(s.cycle.off)+' OFF';
