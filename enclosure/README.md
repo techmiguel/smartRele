@@ -47,16 +47,26 @@ It can also be run from the FreeCAD Python console (with the repository root as 
 - **Mains entry.** Three Ø3.8 mm holes with an outer countersink, aligned with the J1 wire entries. They were measured on the 3D model: center 5.1 mm above the PCB bottom face and 5.08 mm pitch. They are labeled N · OUT · L, matching the terminal block. In front there is an apron with two slots for a cable tie that provides strain relief: pulling the cable must never reach the terminal block.
 - **No buttons on the lid.** SW1 (GPIO0) and SW2 (RST) are for debugging only: they stay inside and are pressed with the lid removed. Every hole and moving part removed from a mains enclosure is one less entry path for dust or objects. If the firmware used SW1 to toggle the relay by hand, a guide and a plunger above SW1 would have to be added to the lid.
 - **LEDs.** D2 and D3 are 0603 SMD parts, 1.1 mm above the PCB. Ø2.6 mm light pipes come down from the lid to 1.5 mm above each LED, so the light of one LED is not visible through the other's hole. The holes stay above the LEDs, which are placed diagonally (7.3 mm in X and 20.3 mm in Y). To keep the marking tidy without moving them, the same module is repeated for each LED:
-  - an engraved ring concentric with the hole, from Ø4.2 to Ø5.2 mm;
-  - the label (RELAY / WiFi), same size (2.6 mm), right-aligned at the same distance from the ring and vertically centered on the hole.
+  - an engraved ring concentric with the hole, from Ø4.2 to Ø5.6 mm;
+  - the label (RELAY / WiFi), same size (5 mm), right-aligned at the same distance from the ring and vertically centered on the hole.
   For better visibility, the pipe can be filled with a drop of clear resin or a piece of clear 1.75 mm filament.
 - **Convection cooling.** Air enters through low slots at the front (below the PCB, next to the relay) and leaves through high slots at the back (above PS1) and on the right side. All slots are **1.5 mm** wide, so a 2.5 mm probe cannot pass (IP3X in that respect; not tested).
 - **Antenna.** Only plastic covers the ESP-12F antenna; there are no screws or metal parts in that area. The mounting tabs are at both ends: the right-hand hole is 11.7 mm from the PCB edge, at mid-height of the board.
 
 ## Labels (engraved 0.5–0.6 mm deep)
 - Lid: only RELAY and WiFi, next to their LEDs.
-- Front: N · OUT · L above the cables and, below, on two lines, "110 VAC  max 10 A" and "@techmigue".
-- Bottom: "Smart Rele" (product name), readable when the enclosure is turned over.
+- Front: N and L just above their cables; OUT one row higher, with an engraved leader down to the middle cable (at a printable size it does not fit in the 5.08 mm pitch between N and L). To the right, on two lines, "110 VAC  MAX 10 A" and "@techmigue".
+- Bottom: "Smart Rele" (product name), readable when the enclosure is turned over sideways.
+
+Every label is sized for a 0.4 mm nozzle, and the script refuses to build if any of them breaks these rules:
+
+| Rule | Minimum | Why |
+|---|---|---|
+| Material between adjacent letters | 0.85 mm | Two extrusion lines. Kerned pairs (LA, AY, VA) are pushed apart only as far as needed. |
+| Material inside a letter (counters, the gap of the "e", the dot of the "i") | 0.45 mm | One extrusion line; anything thinner is skipped by the slicer and the letter fills in. |
+| Engraved stroke width | 0.45 mm (walls), 0.55 mm (faces printed on the bed) | Elephant's foot narrows the first layers. |
+
+The font is Verdana Bold, designed for small sizes. None of the fonts tested (Verdana, Tahoma, Arial, Segoe UI, Consolas, DejaVu) has a printable "@" at this size, so the "@" is drawn from primitives (0.65 mm strokes, ≥ 0.6 mm gaps). The rating is in capitals because the bowl of a lowercase "a" is thinner than 0.45 mm at any size that fits.
 
 ## Printing
 - **Material: PETG or ASA/ABS.** Not PLA: inside the enclosure, PS1 and the relay coil (~0.5 W) produce heat, and PLA deforms from about 55 °C.

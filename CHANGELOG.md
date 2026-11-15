@@ -2,6 +2,11 @@
 
 All notable hardware revisions are documented here, together with the engineering rationale behind each change.
 
+## [enclosure] — 2026-11-15
+
+### Fixed
+- **Engraved labels were not printable** (reported by the print shop). Arial Bold at 1.7–2.6 mm left 0.1–0.2 mm of material between letters and inside them, below one extrusion line of a 0.4 mm nozzle, so the slicer drops it and the letters merge. All labels now use Verdana Bold (designed for small sizes) at 3.2–7 mm, kerned pairs are pushed apart to 0.85 mm, the "@" is drawn from primitives, and the generator checks every label (≥ 0.85 mm between letters, ≥ 0.45 mm inside them, strokes ≥ 0.45 mm, 0.55 mm on bed faces) and refuses to build otherwise. "OUT" moved one row up with a leader to its cable, and the rating is in capitals. Details in [`enclosure/README.md`](enclosure/README.md#labels-engraved-0506-mm-deep).
+
 ## [v3.1] — 2026-10-08
 
 ### Changed

@@ -26,7 +26,14 @@ try:
     OUT = os.path.dirname(os.path.abspath(__file__))
 except NameError:   # exec() from the FreeCAD console: repository root as working directory
     OUT = os.path.join(os.getcwd(), "enclosure")
-FONT_DIR, FONT = "C:/Windows/Fonts/", "arialbd.ttf"
+FONT_DIR = "C:/Windows/Fonts/"
+# Verdana Bold: designed for small sizes (wide sidebearings, open apertures).
+FONT = "verdanab.ttf"
+# Engraved-text printability for a 0.4 mm nozzle (checked on every label, see check_text):
+LETTER_GAP = 0.85   # material between adjacent letters: two extrusion lines
+MIN_GAP = 0.45      # material inside a glyph (counters, apertures, i dot): one line
+MIN_STROKE = 0.45   # engraved stroke width on walls; 0.55 on faces printed on the bed
+                    # (elephant's foot narrows the first layers)
 
 # ---------------------------------------------------------------- parameters
 PCB_W, PCB_H, PCB_T = 66.5, 49.0, 1.6
@@ -92,20 +99,116 @@ def outline(z0, z1, fillet=1.0):
     return fuse([b] + [cyl(x, y, BOSS_R, z0, z1) for x, y in BOSSES])
 
 
-def text_solid(txt, size, depth):
-    wires = Part.makeWireString(txt, FONT_DIR, FONT, size, 0)
-    faces = []
-    for ch in wires:
+def at_sign(cx, cy):
+    """Printable "@" (~5.6 mm): no system font has one at this size, the arms of the
+    spiral end up < 0.3 mm apart. 0.65 mm strokes, >= 0.6 mm of material between them."""
+    t, ra = 0.65, 1.2                    # stroke, bowl outer radius
+    ri = (ra ** 2 + (ra + 0.6) ** 2) ** 0.5   # outer ring inner radius: 0.6 mm to the stem ends
+
+    def disc(x, y, r):
+        return Part.Face(Part.Wire(Part.makeCircle(r, V(x, y, 0))))
+
+    def ring(x, y, r0, r1):
+        return disc(x, y, r1).cut(disc(x, y, r0))
+
+    def wedge(a0, a1):                   # angular sector a0 -> a1 (degrees, CCW)
+        import math
+        n = int((a1 - a0) / 5) + 1
+        pts = [V(0, 0, 0)] + [V(9 * math.cos(math.radians(a0 + (a1 - a0) * k / n)),
+                                9 * math.sin(math.radians(a0 + (a1 - a0) * k / n)), 0)
+                              for k in range(n + 1)] + [V(0, 0, 0)]
+        return Part.Face(Part.makePolygon(pts))
+    bowl = ring(0, 0, ra - t, ra)
+    stem = Part.Face(Part.makePolygon([V(ra - t, -ra, 0), V(ra, -ra, 0), V(ra, ra, 0),
+                                       V(ra - t, ra, 0), V(ra - t, -ra, 0)]))
+    # foot: U below y = -ra whose legs match exactly the stem and the outer ring band
+    xi, xo = (ri ** 2 - ra ** 2) ** 0.5, ((ri + t) ** 2 - ra ** 2) ** 0.5
+    below = Part.Face(Part.makePolygon([V(-9, -ra, 0), V(9, -ra, 0), V(9, -9, 0),
+                                        V(-9, -9, 0), V(-9, -ra, 0)]))
+    foot = disc((ra - t + xo) / 2, -ra, (xo - ra + t) / 2).cut(
+        disc((ra + xi) / 2, -ra, (xi - ra) / 2)).common(below)
+    outer = ring(0, 0, ri, ri + t).cut(below.common(wedge(-90, 0)))   # opening: lower right
+    f = bowl.fuse([stem, foot, outer]).removeSplitter()
+    f.translate(V(cx, cy, 0))
+    return Part.Compound(f.Faces)
+
+
+def text_faces(txt, size):
+    """Glyph faces with natural spacing, then each letter pushed right only as far as
+    needed to leave LETTER_GAP of material to the previous ones (kerned pairs such as
+    "LA" or "VA" nearly touch at these sizes)."""
+    glyphs = []
+    for c, ch in zip(txt, Part.makeWireString(txt, FONT_DIR, FONT, size, 0)):
         if ch:
-            faces.append(Part.makeFace(ch, "Part::FaceMakerBullseye"))
-    comp = Part.Compound(faces)
+            g = Part.Compound([Part.makeFace(ch, "Part::FaceMakerBullseye")])
+            if c == "@":                 # same place, printable geometry
+                g = at_sign(g.BoundBox.Center.x, g.BoundBox.Center.y)
+            glyphs.append(g)
+    for k in range(1, len(glyphs)):
+        while True:
+            d = min(glyphs[k].distToShape(g)[0] for g in glyphs[max(0, k - 3):k])
+            if d >= LETTER_GAP:
+                break
+            for g in glyphs[k:]:
+                g.translate(V(LETTER_GAP - d + 0.01, 0, 0))
+    return Part.Compound(glyphs)             # one child compound per letter
+
+
+def check_text(comp, txt, min_stroke):
+    """Fails the build if an engraved label is not printable. Morphological test on the
+    2D glyphs: dilating them by MIN_GAP/2 must not merge letters or close counters,
+    and eroding them by min_stroke/2 must not break any stroke."""
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+
+    def pts(w):
+        return [(p.x, p.y) for p in w.discretize(Deflection=0.002)]
+    polys = [unary_union([Polygon(pts(f.OuterWire), [pts(w) for w in f.Wires
+                                                      if not w.isSame(f.OuterWire)]).buffer(0)
+                          for f in letter.Faces]) for letter in comp.childShapes()]
+    # +-2 um closes the seams between adjacent faces of one glyph (discretization)
+    g = unary_union(polys).buffer(0.002, quad_segs=32).buffer(-0.002, quad_segs=32)
+    parts =list(getattr(g, "geoms", [g]))
+    holes = [Polygon(h) for p in parts for h in p.interiors]
+
+    def nholes(s):
+        return sum(len(p.interiors) for p in getattr(s, "geoms", [s]))
+
+    def single(s):
+        return not s.is_empty and s.geom_type == "Polygon"
+    # gap: no letters merge, every counter survives as one piece, and no new enclosed
+    # void appears (e.g. the arms of the "@" spiral fusing)
+    r = MIN_GAP / 2
+    dil = g.buffer(r, quad_segs=32)
+    ok_gap = (len(getattr(dil, "geoms", [dil])) == len(parts)
+              and all(single(h.buffer(-r, quad_segs=32)) for h in holes)
+              and nholes(dil) == len(holes))
+    # stroke: every stroke survives erosion without splitting or opening into a counter
+    r = min_stroke / 2
+    ok_stroke = all(single(e) and len(e.interiors) == len(p.interiors)
+                    for p in parts for e in [p.buffer(-r, quad_segs=32)])
+    letter = min((a.distance(b) for k, a in enumerate(polys) for b in polys[k + 1:]
+                  if not a.intersects(b)), default=9.0)
+    TEXT_REPORT.append((txt, round(letter, 2)))
+    if not (ok_gap and ok_stroke and letter >= LETTER_GAP - 0.01):
+        raise RuntimeError("label not printable: %r (letter gap %.2f, gap ok %s, stroke ok %s)"
+                           % (txt, letter, ok_gap, ok_stroke))
+
+
+TEXT_REPORT = []
+
+
+def text_solid(txt, size, depth, min_stroke=MIN_STROKE):
+    comp = text_faces(txt, size)
+    check_text(comp, txt, min_stroke)
     return comp.extrude(V(0, 0, depth)), comp.BoundBox
 
 
 def text_top(txt, size, cx, cy, ztop, depth=0.6, align="center"):
     """Text engraved on an upward-facing horizontal face. (cx, cy) is the center, or
-    the right end (vertically centered) if align == "right"."""
-    s, bb = text_solid(txt, size, depth + 0.2)
+    the right end (vertically centered) if align == "right". The lid prints upside
+    down, so this face lies on the bed."""
+    s, bb = text_solid(txt, size, depth + 0.2, min_stroke=0.55)
     x0 = cx - bb.XMax if align == "right" else cx - (bb.XMin + bb.XMax) / 2
     s.translate(V(x0, cy - (bb.YMin + bb.YMax) / 2, ztop - depth))
     return s
@@ -182,13 +285,18 @@ def make_base():
     for i in range(5):
         y = 31.0 + i * 3.5
         cuts.append(box(cx1 - 0.1, ox1 + 1, y, y + 1.5, 13.0, 22.0))
-    # terminal block labels on the front face
-    for x, t in zip(J1_X, ("N", "OUT", "L")):
-        cuts.append(text_front(t, 2.6 if t != "OUT" else 1.7, x, J1_Z + 4.4, oy0))
-    cuts.append(text_front("110 VAC  max 10 A", 2.4, 42.0, 16.0, oy0))
-    cuts.append(text_front("@techmigue", 2.4, 42.0, 12.2, oy0))
+    # terminal block labels. At a printable size "OUT" is wider than the 5.08 mm pitch
+    # allows between N and L, so it sits one row higher with an engraved leader to its hole.
+    cuts.append(text_front("N", 3.5, J1_X[0], 17.6, oy0))
+    cuts.append(text_front("L", 3.5, J1_X[2], 17.6, oy0))
+    cuts.append(text_front("OUT", 3.5, J1_X[1], 22.0, oy0))
+    cuts.append(box(J1_X[1] - 0.3, J1_X[1] + 0.3, oy0 - 0.2, oy0 + 0.5, 15.4, 19.8))
+    # rating and handle, centered on the flat face between the L entry and the corner boss.
+    # Rating in capitals: the bowl of a lowercase "a" is too thin at any size that fits.
+    cuts.append(text_front("110 VAC  MAX 10 A", 3.2, 41.2, 22.0, oy0))
+    cuts.append(text_front("@techmigue", 5.3, 41.2, 15.3, oy0))
     # bottom label
-    s, bb = text_solid("Smart Rele", 6, 0.8)
+    s, bb = text_solid("Smart Rele", 7, 0.8, min_stroke=0.55)   # printed on the bed
     s.rotate(V(0, 0, 0), V(0, 1, 0), 180)        # readable when looking at the bottom face
     bb = s.BoundBox
     s.translate(V(PCB_W / 2 - (bb.XMin + bb.XMax) / 2, PCB_H / 2 - (bb.YMin + bb.YMax) / 2,
@@ -204,9 +312,9 @@ PIPE_R, PIPE_BORE = 2.2, 1.3           # LED light pipe
 # distance, same size, right-aligned and vertically centered on the hole).
 # The holes do not move: they stay above D2 and D3.
 LED_LABELS = ("RELAY", "WiFi")
-RING_R0, RING_R1 = 2.1, 2.6            # engraved ring around the hole
+RING_R0, RING_R1 = 2.1, 2.8            # engraved ring around the hole (0.7 mm: on the bed)
 LABEL_GAP = 1.4                        # ring -> end of the text
-LABEL_SIZE = 2.6
+LABEL_SIZE = 5.0
 
 
 def make_lid():
@@ -309,6 +417,8 @@ def build():
 if True:   # FreeCAD runs the script with exec(): always build
     doc, objs = build()
     export(objs)
+    for t, gap in TEXT_REPORT:
+        print("label %-20r printable, closest letters %.2f mm apart" % (t, gap))
     for k, o in objs.items():
         s = o.Shape
         print(k, "valid", s.isValid(), "solids", len(s.Solids), "shells", len(s.Shells), "vol %.1f cm3" % (s.Volume / 1000),
