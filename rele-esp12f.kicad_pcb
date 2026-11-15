@@ -7555,7 +7555,7 @@
 			)
 		)
 		(property "Datasheet" "https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5rl.pdf"
-			(at 0 0 270)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "c943608e-be7c-4a35-ac04-f56518719ca7")
@@ -7566,7 +7566,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 270)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "8e4d7033-4ef4-439a-be97-b62ad8872d44")
@@ -7912,7 +7912,7 @@
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 -90)
+				(xyz -0 -0 90)
 			)
 		)
 	)
