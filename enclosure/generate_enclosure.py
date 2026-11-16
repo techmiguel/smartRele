@@ -342,8 +342,9 @@ def make_lid():
 
     cuts = []
     for x, y in BOSSES:
-        cuts.append(cyl(x, y, 1.7, Z_LID - 1, z1 + 1))                 # M3 clearance hole
-        cuts.append(cyl(x, y, 3.1, z1 - 1.0, z1 + 1))                  # screw head recess
+        # M3 clearance hole. No head recess: a Ø6.2 recess in the Ø6.6 lobe would leave a
+        # 0.2 mm wall (unprintable); the head sits on top of the lobe.
+        cuts.append(cyl(x, y, 1.7, Z_LID - 1, z1 + 1))
     for x, y in LED:
         cuts.append(cyl(x, y, PIPE_BORE, LED_TOP, z1 + 1))
     lid = lid.cut(fuse(cuts))

@@ -43,7 +43,7 @@ It can also be run from the FreeCAD Python console (with the repository root as 
   - Below, it rests on a 1.5 mm perimeter ledge (supporting 1.2 mm of the board edge), on the M2 standoffs of MH1/MH2 and on two pillars located right under SW1 and SW2, so the board does not flex when they are pressed with the lid removed.
   - Above, four lid posts come down to 0.2 mm from the PCB in component-free areas: left edge between J1 and PS1, top edge between PS1 and the ESP, bottom edge under K1 and right edge next to SW1. Two more stops sit 0.5 mm above PS1 and K1. Even if the screws loosen, the board cannot move more than 0.2 mm.
   - Metal screws only go through MH1/MH2. These holes are in the low-voltage zone, as required by the PCB README.
-- **Screwed lid (4 × M3), not snap-fit.** On mains equipment, opening the enclosure must require a tool. The screw bosses are outside the PCB outline, 0.64 mm from its rounded corners. A 2.5 mm skirt centers the lid on the base.
+- **Screwed lid (4 × M3), not snap-fit.** On mains equipment, opening the enclosure must require a tool. The screw bosses are outside the PCB outline, 0.64 mm from its rounded corners. A 2.5 mm skirt centers the lid on the base. The screw heads sit on top of the Ø6.6 mm corner lobes: a head recess (Ø6.2 mm) would leave a 0.2 mm wall, thinner than a 0.44 mm nozzle can print.
 - **Mains entry.** Three Ø3.8 mm holes with an outer countersink, aligned with the J1 wire entries. They were measured on the 3D model: center 5.1 mm above the PCB bottom face and 5.08 mm pitch. They are labeled N · OUT · L, matching the terminal block. In front there is an apron with two slots for a cable tie that provides strain relief: pulling the cable must never reach the terminal block.
 - **No buttons on the lid.** SW1 (GPIO0) and SW2 (RST) are for debugging only: they stay inside and are pressed with the lid removed. Every hole and moving part removed from a mains enclosure is one less entry path for dust or objects. If the firmware used SW1 to toggle the relay by hand, a guide and a plunger above SW1 would have to be added to the lid.
 - **LEDs.** D2 and D3 are 0603 SMD parts, 1.1 mm above the PCB. Ø2.6 mm light pipes come down from the lid to 1.5 mm above each LED, so the light of one LED is not visible through the other's hole. The holes stay above the LEDs, which are placed diagonally (7.3 mm in X and 20.3 mm in Y). To keep the marking tidy without moving them, the same module is repeated for each LED:
@@ -72,9 +72,10 @@ The font is Verdana Bold, designed for small sizes. None of the fonts tested (Ve
 - **Material: PETG or ASA/ABS.** Not PLA: inside the enclosure, PS1 and the relay coil (~0.5 W) produce heat, and PLA deforms from about 55 °C.
 - 0.2 mm layers, 4 perimeters (the 2.4 mm walls come out solid), 25–30 % gyroid infill. **No supports needed**: all overhangs are bridges of ≤ 3.8 mm or 45° chamfers.
 - The STL meshes were verified to be closed, with no non-manifold edges and no self-intersections.
+- Minimum feature width checked layer by layer (every 0.2 mm, as a slicer cuts it): no wall or rib is thinner than 0.44 mm. The only narrower spots are the sharp inner corners of the engraved letters (W, A, V, N), which the slicer simply rounds.
 
 ## Assembly
-Hardware: 4 × M3×10 self-tapping (lid), 2 × M2×6 self-tapping (PCB), 2 × M4 to mount the enclosure and 1 × 3.6 mm cable tie.
+Hardware: 4 × M3×12 self-tapping, pan head Ø ≤ 6 mm (lid; 9.5 mm of thread in the 12 mm pilot hole), 2 × M2×6 self-tapping (PCB), 2 × M4 to mount the enclosure and 1 × 3.6 mm cable tie.
 1. Screw the PCB to the base through MH1 and MH2 (M2×6, do not overtighten: it is plastic).
 2. Pass the cables through the front holes and tighten them in J1 (N · OUT · L, left to right seen from the front). Secure them to the apron with the cable tie.
 3. Close the lid and fit the 4 M3 screws.
