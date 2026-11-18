@@ -28,6 +28,8 @@ struct Settings {
   char deviceName[33] = "";
   char wifiSsid[33] = "";
   char wifiPass[65] = "";
+  char apSsid[33] = "";      // own access point; empty = "SmartRele-XXXXXX"
+  char apPass[64] = "";      // own access point; empty = network::AP_PASSWORD
   char adminPass[33] = "";   // empty = web and OTA without password (not recommended)
   char tz[64] = "UTC0";      // POSIX time zone, e.g. "COT5" or "CET-1CEST,M3.5.0,M10.5.0/3"
   char ntpServer[48] = "pool.ntp.org";

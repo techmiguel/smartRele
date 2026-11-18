@@ -24,7 +24,7 @@ void startAp() {
   WiFi.mode(settings.wifiSsid[0] ? WIFI_AP_STA : WIFI_AP);
   WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1),
                     IPAddress(255, 255, 255, 0));
-  WiFi.softAP(ap.c_str(), network::AP_PASSWORD);
+  WiFi.softAP(ap.c_str(), settings.apPass[0] ? settings.apPass : network::AP_PASSWORD);
   dns.setErrorReplyCode(DNSReplyCode::NoError);
   dns.start(53, "*", WiFi.softAPIP());
   apOn = true;
@@ -71,6 +71,8 @@ void handleButton() {
     Serial.println(F("[btn] erasing Wi-Fi settings"));
     settings.wifiSsid[0] = 0;
     settings.wifiPass[0] = 0;
+    settings.apSsid[0] = 0;  // back to the default AP, in case its custom password was forgotten
+    settings.apPass[0] = 0;
     store::save();
     buttonDownAt = 0;
     network::requestRestart(100);
@@ -97,7 +99,7 @@ void begin() {
   snprintf(buf, sizeof(buf), "smartrele-%06x", ESP.getChipId());
   host = buf;
   snprintf(buf, sizeof(buf), "SmartRele-%06X", ESP.getChipId());
-  ap = buf;
+  ap = settings.apSsid[0] ? settings.apSsid : buf;
   if (!settings.deviceName[0]) strlcpy(settings.deviceName, host.c_str(), sizeof(settings.deviceName));
 
   WiFi.persistent(false);  // credentials live in config.json, not in the SDK flash area

@@ -1,6 +1,6 @@
 # SmartRele firmware · rele-esp12f
 
-Firmware v1.1.0 for the rele-esp12f board (ESP-12F / ESP8266). The relay is **controlled over Wi-Fi only**, from a built-in web interface or through a JSON REST API:
+Firmware v1.3.0 for the rele-esp12f board (ESP-12F / ESP8266). The relay is **controlled over Wi-Fi only**, from a built-in web interface (in Spanish) or through a JSON REST API:
 
 - **Manual on / off**, with the time the output has been on in the current ON period.
 - **State-change timer**: after a delay (1 s to 7 days) it turns the relay on, off or toggles it.
@@ -72,7 +72,7 @@ pio device monitor
 
 Once the device is on the network there are two options, both protected by the admin password:
 
-- **Browser**: *System → Update firmware* (`http://<device>/update`) and upload `.pio/build/esp12f/firmware.bin`.
+- **Browser**: *Ajustes → Actualizar firmware* (`http://<device>/update`) and upload `.pio/build/esp12f/firmware.bin`.
 - **PlatformIO** (ArduinoOTA): set the environment variable `SMARTRELE_PASS` to the admin password and run:
 
 ```bash
@@ -85,15 +85,21 @@ The relay keeps its state while the update is written. The restart that follows 
 
 1. With no network configured, the device creates the access point **`SmartRele-XXXXXX`** (password `smartrele`). The blue LED blinks fast.
 2. Join it from a phone. The setup page opens by itself; if it does not, browse to `http://192.168.4.1`.
-3. The main page only shows the on/off button, the time the output has been on and the timer. Everything else (cyclic routine, schedules, settings, Wi-Fi, system) is under **Advanced**. Under *Advanced → Settings*, set an **admin password** (user `admin`, 8–32 characters) and the time zone.
-4. Under *Advanced → Wi-Fi network*, pick the network, enter its password and press *Save and restart*.
+3. The main page shows the device name, a large remote-control style button and the time spent in the current state.
+   - The button shows the action it will perform: **ON** with a green ring while the output is off, **OFF** with a red ring while it is on.
+   - Three buttons at the bottom open simple panels:
+     - **Temporizador**: hour/minute/second wheels and an ENCENDER/APAGAR toggle.
+     - **Rutina**: ON and OFF times of the cyclic routine.
+     - **Ajustes**: name, state at power-up, admin password, name and password of the device's own access point, Wi-Fi, firmware update and restart.
+   - Under *Ajustes*, set an **admin password** (user `admin`, 8–32 characters).
+4. Under *Ajustes → Red Wi-Fi*, pick the network, enter its password and press *Conectar*.
 5. The device joins the network (blue LED steady) and is reachable at `http://smartrele-xxxxxx.local/` (mDNS) or at the IP address the router assigns (shown on the serial monitor and in the router).
 
-`XXXXXX` is the chip ID in hexadecimal, different on every board.
+`XXXXXX` is the chip ID in hexadecimal, different on every board. The access point name (1–32 characters) and password (8–63 characters) can be changed under *Ajustes → Wi-Fi propia del relé*; the device restarts to apply them.
 
 If the network is unavailable for 60 s, the access point opens again (the device keeps retrying the network) so the settings can be changed. It closes as soon as the network is back and nobody is connected to it.
 
-**Erasing the Wi-Fi network**: hold SW1 for **8 s** (from 3 s on, the blue LED blinks very fast). The device restarts in access point mode. Schedules and the password are kept; to erase everything use *Factory reset* in the web interface.
+**Erasing the Wi-Fi network**: hold SW1 for **8 s** (from 3 s on, the blue LED blinks very fast). The device restarts in access point mode, with the default name and password `smartrele`. Schedules and the admin password are kept; to erase everything use `POST /api/factory-reset`.
 
 ### Blue LED (D3)
 
@@ -121,7 +127,7 @@ The timer and the cyclic routine cannot be active at the same time. When the tim
 
 ### Time and schedules
 
-- The time comes from **NTP** (`pool.ntp.org` by default) and is converted to local time with the configured **POSIX time zone** (the web interface lists those of Latin America, the US and Europe; any other can be typed in). The default is UTC.
+- The time comes from **NTP** (`pool.ntp.org` by default) and is converted to local time with the configured **POSIX time zone** (`tz` field of `POST /api/config`). The default is UTC. Since v1.2.0 the web interface does not show the weekly schedules or the time zone: they are managed through the REST API.
 - Without Internet access (for example, using only the access point) the web page sends the browser time when it opens. NTP time always takes precedence.
 - Schedules do not run until the time is valid; the timer and the cyclic routine do, because they only use the internal clock.
 - Each schedule runs once in its minute. After a restart it only runs if the device boots within the first 10 s of that minute. Schedules missed during a power cut are not caught up.
@@ -173,7 +179,7 @@ curl --digest -u admin:PASSWORD -X POST -H "Content-Type: application/json" -d '
 | `PUT /api/schedules?id=N` | Any field of the above | Modifies schedule N (0-based index) |
 | `DELETE /api/schedules?id=N` | — | Deletes schedule N |
 | `GET /api/config` | — | Settings (without passwords) |
-| `POST /api/config` | `{"name","tz","ntp","powerOn":0\|1\|2,"adminPass"}` | Changes settings; every field is optional |
+| `POST /api/config` | `{"name","tz","ntp","powerOn":0\|1\|2,"adminPass","apSsid","apPass"}` | Changes settings; every field is optional |
 | `POST /api/time` | `{"epoch":1767225600}` | Sets the clock when there is no NTP |
 | `GET /api/wifi/scan` | — | Scans for networks (replies 202 while scanning) |
 | `POST /api/wifi` | `{"ssid":"...","pass":"..."}` | Stores the network and restarts |
@@ -182,7 +188,7 @@ curl --digest -u admin:PASSWORD -X POST -H "Content-Type: application/json" -d '
 
 `days` is a bit mask with Sunday in bit 0: Monday to Friday = 62, weekends = 65, every day = 127.
 
-Changing the admin password restarts the device, because ArduinoOTA and `/update` read it at boot.
+Changing the admin password or the access point name or password restarts the device, because ArduinoOTA, `/update` and the access point read them at boot.
 
 ## Security
 

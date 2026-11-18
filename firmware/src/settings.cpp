@@ -59,6 +59,8 @@ void load() {
   copyStr(settings.deviceName, sizeof(settings.deviceName), doc["name"] | "");
   copyStr(settings.wifiSsid, sizeof(settings.wifiSsid), doc["ssid"] | "");
   copyStr(settings.wifiPass, sizeof(settings.wifiPass), doc["pass"] | "");
+  copyStr(settings.apSsid, sizeof(settings.apSsid), doc["apSsid"] | "");
+  copyStr(settings.apPass, sizeof(settings.apPass), doc["apPass"] | "");
   copyStr(settings.adminPass, sizeof(settings.adminPass), doc["admin"] | "");
   copyStr(settings.tz, sizeof(settings.tz), doc["tz"] | "UTC0");
   copyStr(settings.ntpServer, sizeof(settings.ntpServer), doc["ntp"] | "pool.ntp.org");
@@ -90,6 +92,8 @@ bool save() {
   doc["name"] = settings.deviceName;
   doc["ssid"] = settings.wifiSsid;
   doc["pass"] = settings.wifiPass;
+  doc["apSsid"] = settings.apSsid;
+  doc["apPass"] = settings.apPass;
   doc["admin"] = settings.adminPass;
   doc["tz"] = settings.tz;
   doc["ntp"] = settings.ntpServer;

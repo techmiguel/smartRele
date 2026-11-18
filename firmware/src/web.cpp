@@ -255,6 +255,7 @@ void handleConfigGet() {
   doc["ntp"] = settings.ntpServer;
   doc["powerOn"] = static_cast<uint8_t>(settings.powerOn);
   doc["ssid"] = settings.wifiSsid;
+  doc["apSsid"] = network::apSsid();
   doc["auth"] = settings.adminPass[0] != 0;
   JsonObject c = doc["cycle"].to<JsonObject>();
   c["on"] = settings.cycle.onSec;
@@ -289,20 +290,33 @@ void handleConfigSet() {
     settings.powerOn = static_cast<PowerOnMode>(pm);
     if (settings.powerOn == PowerOnMode::Last) store::saveRelayState(relay::isOn());
   }
-  bool passChanged = false;
+  bool needRestart = false;
   if (doc["adminPass"].is<const char*>()) {
     const char* p = doc["adminPass"];
     size_t len = strlen(p);
     if (len < 8 || len >= sizeof(settings.adminPass)) return sendError(400, F("Password must be 8 to 32 characters"));
-    passChanged = strcmp(p, settings.adminPass) != 0;
+    needRestart = strcmp(p, settings.adminPass) != 0;
     strlcpy(settings.adminPass, p, sizeof(settings.adminPass));
+  }
+  if (doc["apSsid"].is<const char*>()) {
+    const char* s = doc["apSsid"];
+    if (!*s || strlen(s) >= sizeof(settings.apSsid)) return sendError(400, F("Access point name must be 1 to 32 characters"));
+    needRestart |= strcmp(s, network::apSsid().c_str()) != 0;
+    strlcpy(settings.apSsid, s, sizeof(settings.apSsid));
+  }
+  if (doc["apPass"].is<const char*>()) {
+    const char* p = doc["apPass"];
+    size_t len = strlen(p);  // WPA2 passphrase limits
+    if (len < 8 || len >= sizeof(settings.apPass)) return sendError(400, F("Access point password must be 8 to 63 characters"));
+    needRestart |= strcmp(p, settings.apPass) != 0;
+    strlcpy(settings.apPass, p, sizeof(settings.apPass));
   }
   if (!store::save()) return sendError(500, F("Could not save"));
   if (timeChanged) scheduler::reconfigure();
-  if (passChanged) {
-    // ArduinoOTA and the web updater read the password at boot.
+  if (needRestart) {
+    // ArduinoOTA, the web updater and the access point read their settings at boot.
     network::requestRestart(1500);
-    return sendOk(F("Saved. Restarting to apply the password"));
+    return sendOk(F("Saved. Restarting to apply"));
   }
   sendOk(F("Settings saved"));
 }
