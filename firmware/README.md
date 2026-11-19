@@ -1,11 +1,12 @@
 # SmartRele firmware · rele-esp12f
 
-Firmware v1.3.0 for the rele-esp12f board (ESP-12F / ESP8266). The relay is **controlled over Wi-Fi only**, from a built-in web interface (in Spanish) or through a JSON REST API:
+Firmware v1.4.0 for the rele-esp12f board (ESP-12F / ESP8266). The relay is controlled over Wi-Fi from a built-in web interface (in Spanish) or through a JSON REST API, and from anywhere on the Internet through an optional **Telegram bot**:
 
 - **Manual on / off**, with the time the output has been on in the current ON period.
 - **State-change timer**: after a delay (1 s to 7 days) it turns the relay on, off or toggles it.
 - **Cyclic ON/OFF routine**: on for one period and off for another, repeated indefinitely.
 - **Weekly schedules**: up to 16 rules of the form "at HH:MM, on these days, turn on/off/toggle".
+- **Telegram bot**: on/off, status, timer and routine from the Telegram app, plus notifications when the relay changes on its own or the power comes back. See [Control over the Internet (Telegram)](#control-over-the-internet-telegram).
 
 Push button SW1 does not control the relay in this version: it only erases the Wi-Fi settings.
 
@@ -154,6 +155,58 @@ The timer does **not** survive a restart. Schedules, the cyclic routine and the 
 
 The 5 s minimum per phase prevents absurdly fast switching, but it is not enough for the relay to last: the Omron datasheet guarantees **50,000–100,000 electrical operations** at rated load (depending on the model). A 5 s ON / 5 s OFF routine makes 360 operations per hour and would use up 50,000 in less than a week; a 10 min ON / 50 min OFF routine would take more than five years. Choose phases as long as the application allows.
 
+## Control over the Internet (Telegram)
+
+The device opens an **outgoing** HTTPS connection to `api.telegram.org` and asks it for new messages (long polling). Nothing has to be reachable from the Internet: it works on a phone hotspot, behind the carrier's CGNAT and on any router without port forwarding, and needs no server of your own.
+
+> [!IMPORTANT]
+> The relay reaches the Internet through its Wi-Fi network. If that network is a phone hotspot, **that phone has to stay at home** (an old Android phone on its charger with a data SIM works well); you control the relay from another phone. Hotspot settings: 2.4 GHz band, "turn off hotspot when no devices are connected" disabled, and battery optimisation disabled for the settings app.
+
+### Setup
+
+1. In Telegram, open **@BotFather**, send `/newbot` and choose a name and a user name ending in `bot`. BotFather replies with a **token** such as `123456789:AAH...`. Anyone with the token controls the bot: keep it private.
+2. On the relay page: *Ajustes → Telegram*, paste the token and press *Guardar Telegram*. The status line changes to *En línea · @your_bot*.
+3. In Telegram, open your bot and send `/start`. With no authorised users yet, it replies with your **Telegram ID** (a number).
+4. Write that number under *IDs autorizados* and press *Guardar Telegram*. Up to 4 IDs, separated by commas (for example, other people at home).
+5. Send `/start` again: the bot shows the command list and an *Encender / Apagar / Estado* keyboard.
+
+The clock must be set (NTP) before the first connection, because it is needed to check the server certificate.
+
+### Commands
+
+| Command | Function |
+|---|---|
+| `/encender`, `/apagar` (or the keyboard buttons) | Turns the relay on / off; stops the cyclic routine |
+| `/estado` | State and time in it, timer, routine, next schedule, Wi-Fi signal |
+| `/temporizador 30m [encender\|apagar]` | Starts the timer; without the last word it does the opposite of the current state |
+| `/cancelar` | Cancels the timer |
+| `/rutina 10m 50m` | Starts the cyclic routine (ON time, OFF time) |
+| `/detener` | Stops the routine |
+| `/avisos si\|no` | Turns notifications on or off |
+| `/id` | Shows your Telegram ID |
+| `/reiniciar` | Restarts the device |
+| `/ayuda` | Command list |
+
+Durations: `45s`, `30m`, `2h`, `1h30m`, `1d`; a bare number means minutes.
+
+### Notifications
+
+With *Avisar de cambios: sí* (the default), every authorised user gets a message when:
+
+- the device comes online after a restart or a power cut ("volvió la luz"), with the relay state;
+- the relay changes from the web page, the timer or a weekly schedule.
+
+Changes made from Telegram are answered in the chat and are not notified again; the cyclic routine is not notified, so it does not flood the chat. A notification can take up to 25 s (one long-poll period) to arrive.
+
+### Behaviour and limits
+
+- Commands typically take 1–2 s. Commands sent while the relay was offline and that arrive more than **2 minutes late are not executed**: the bot says so, to avoid surprises such as a lamp turning on hours later.
+- Only the listed IDs can control the relay. Anyone else who writes to the bot is only told their own ID.
+- The connection stays open; it costs roughly 3–5 MB of mobile data per day.
+- The TLS connection holds about 23 kB of RAM while the bot is active. The CPU runs at 160 MHz so that the handshake (the only part that blocks the main loop, once per connection) takes about 1 s.
+- The certificate of `api.telegram.org` is verified against the Go Daddy Root G2 root, with Starfield Root G2 and ISRG Root X1 (Let's Encrypt) as spares (`src/telegram_ca.h`). If Telegram ever moves to a different authority, the status line shows a TLS error and a firmware update with the new root is needed.
+- Errors are shown in *Ajustes → Telegram* and in `GET /api/status` (`telegram.state`, `telegram.error`). An invalid token is retried every 10 minutes or as soon as it is changed. If another program uses the same bot (a webhook or a second device), Telegram rejects the connection: each relay needs its own bot.
+
 ## REST API
 
 All routes take and return JSON. When an admin password is set, **HTTP Digest** authentication is used with user `admin`. Examples with `curl`:
@@ -178,8 +231,8 @@ curl --digest -u admin:PASSWORD -X POST -H "Content-Type: application/json" -d '
 | `POST /api/schedules` | `{"time":"07:30","days":62,"action":"on","enabled":true}` | Adds a schedule |
 | `PUT /api/schedules?id=N` | Any field of the above | Modifies schedule N (0-based index) |
 | `DELETE /api/schedules?id=N` | — | Deletes schedule N |
-| `GET /api/config` | — | Settings (without passwords) |
-| `POST /api/config` | `{"name","tz","ntp","powerOn":0\|1\|2,"adminPass","apSsid","apPass"}` | Changes settings; every field is optional |
+| `GET /api/config` | — | Settings (without passwords; `tgToken` only says whether a token is set) |
+| `POST /api/config` | `{"name","tz","ntp","powerOn":0\|1\|2,"adminPass","apSsid","apPass","tgToken","tgUsers":"123, 456","tgNotify":true}` | Changes settings; every field is optional. `"tgToken":""` disables the bot |
 | `POST /api/time` | `{"epoch":1767225600}` | Sets the clock when there is no NTP |
 | `GET /api/wifi/scan` | — | Scans for networks (replies 202 while scanning) |
 | `POST /api/wifi` | `{"ssid":"...","pass":"..."}` | Stores the network and restarts |
@@ -193,6 +246,7 @@ Changing the admin password or the access point name or password restarts the de
 ## Security
 
 - **Always set an admin password.** Without it, anyone on the network (or on the access point, whose password is public) can switch the relay.
+- The Telegram bot is the only way to control the relay from outside your network. Keep the bot token private (it is stored in the module flash like the passwords) and list only trusted IDs. If the token leaks, revoke it in @BotFather (`/revoke`) and enter the new one.
 - The web interface uses plain HTTP. Digest authentication does not send the password in clear text, but the rest of the traffic is unencrypted: use it only on your local network and do not expose it to the Internet by forwarding ports on the router.
 - Passwords are stored unencrypted in the module flash. Anyone with physical access to the board can read them.
 - **Never connect the serial adapter to J3 while the board is connected to the mains.**
@@ -210,6 +264,8 @@ firmware/
     ├── scheduler.*    Time (NTP / time zone) and weekly schedules
     ├── network.*      Wi-Fi, access point, captive portal, mDNS, OTA, LED and SW1
     ├── web.*          HTTP server and REST API
+    ├── telegram.*     Telegram bot (remote control and notifications)
+    ├── telegram_ca.h  Root certificates for api.telegram.org
     └── web_ui.h       Embedded web interface
 ```
 

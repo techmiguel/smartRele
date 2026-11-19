@@ -9,6 +9,7 @@
 #include "relay.h"
 #include "scheduler.h"
 #include "settings.h"
+#include "telegram.h"
 #include "web_ui.h"
 
 #ifndef FW_VERSION
@@ -161,6 +162,11 @@ void handleStatus() {
   w["ap"] = network::apActive();
   w["apSsid"] = network::apSsid();
 
+  JsonObject tg = doc["telegram"].to<JsonObject>();
+  tg["state"] = telegram::state();
+  tg["bot"] = telegram::botName();
+  tg["error"] = telegram::lastError();
+
   JsonObject s = doc["sys"].to<JsonObject>();
   s["fw"] = FW_VERSION;
   s["uptime"] = millis() / 1000;
@@ -257,6 +263,9 @@ void handleConfigGet() {
   doc["ssid"] = settings.wifiSsid;
   doc["apSsid"] = network::apSsid();
   doc["auth"] = settings.adminPass[0] != 0;
+  doc["tgToken"] = settings.tgToken[0] != 0;  // the token itself is never returned
+  doc["tgUsers"] = telegram::usersText();
+  doc["tgNotify"] = settings.tgNotify;
   JsonObject c = doc["cycle"].to<JsonObject>();
   c["on"] = settings.cycle.onSec;
   c["off"] = settings.cycle.offSec;
@@ -311,7 +320,18 @@ void handleConfigSet() {
     needRestart |= strcmp(p, settings.apPass) != 0;
     strlcpy(settings.apPass, p, sizeof(settings.apPass));
   }
+  bool tgChanged = false;
+  if (doc["tgToken"].is<const char*>()) {
+    const char* t = doc["tgToken"];
+    if (*t && !telegram::validToken(t)) return sendError(400, F("Invalid Telegram token"));
+    tgChanged = strcmp(t, settings.tgToken) != 0;
+    strlcpy(settings.tgToken, t, sizeof(settings.tgToken));
+  }
+  if (doc["tgUsers"].is<const char*>() && !telegram::parseUsers(doc["tgUsers"]))
+    return sendError(400, F("Telegram IDs: up to 4 numbers separated by commas"));
+  if (doc["tgNotify"].is<bool>()) settings.tgNotify = doc["tgNotify"];
   if (!store::save()) return sendError(500, F("Could not save"));
+  if (tgChanged) telegram::reconfigure();
   if (timeChanged) scheduler::reconfigure();
   if (needRestart) {
     // ArduinoOTA, the web updater and the access point read their settings at boot.

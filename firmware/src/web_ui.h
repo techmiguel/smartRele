@@ -125,6 +125,13 @@ hr{border:0;border-top:1px solid var(--ln);margin:22px 0 4px}
 <input id="ws" maxlength="32" placeholder="Nombre de la red" style="margin-top:8px">
 <input id="wp" type="password" maxlength="64" placeholder="Contraseña de la red" style="margin-top:8px">
 <button class="btn ghost" onclick="saveWifi()">Conectar</button>
+<hr>
+<label for="tgt">Telegram (control desde internet)</label><p class="sub" id="tgst" style="text-align:left"></p>
+<input id="tgt" type="password" maxlength="63" autocomplete="off" placeholder="Token del bot (de @BotFather)">
+<input id="tgu" maxlength="80" inputmode="numeric" placeholder="IDs autorizados, separados por comas" style="margin-top:8px">
+<select id="tgn" style="margin-top:8px"><option value="1">Avisar de cambios: sí</option><option value="0">Avisar de cambios: no</option></select>
+<button class="btn ghost" onclick="saveTg()">Guardar Telegram</button>
+<button class="btn ghost" id="tgdel" onclick="if(confirm('¿Quitar el bot de Telegram?'))api('POST','/api/config',{tgToken:''},'Bot quitado').then(loadCfg)">Quitar bot</button>
 <div class="foot"><span id="fw"></span><span><a href="/update">Actualizar firmware</a> · <button onclick="if(confirm('¿Reiniciar el dispositivo?'))api('POST','/api/reboot',null,'Reiniciando…')">Reiniciar</button></span></div>
 </section>
 <div id="msg" role="status"></div>
@@ -156,6 +163,8 @@ function render(){
  $('cysub').textContent=ct||'Empieza encendido y se repite sin fin';$('cstop').style.display=ct?'block':'none';
  $('wst').textContent=st.wifi.connected?'Conectado a '+st.wifi.ssid+' · '+st.wifi.ip:'Sin red · punto de acceso '+st.wifi.apSsid;
  $('fw').textContent='Firmware '+st.sys.fw+' · '+st.host+'.local';
+ const g=st.telegram;$('tgst').textContent={off:'Desactivado',waiting:'Esperando conexión a internet',connecting:'Conectando…',
+  online:'En línea'+(g.bot?' · @'+g.bot:''),error:g.error}[g.state]||'';
 }
 async function refresh(){
  try{const r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw 0;st=await r.json();t0=Date.now();lost=false}catch(e){lost=true}
@@ -185,7 +194,14 @@ function startCycle(){const n=getW('cnh')*3600+getW('cnm')*60,f=getW('cfh')*3600
  api('POST','/api/cycle',{on:n,off:f},'Rutina iniciada').then(r=>{if(r)closeSheet()})}
 async function loadCfg(){try{const c=await(await fetch('/api/config')).json();
  $('cname').value=c.name;$('cpo').value=c.powerOn;if(!$('ws').value)$('ws').value=c.ssid;$('cap').value=$('cap').dataset.v=c.apSsid;
- $('cpw').placeholder=c.auth?'Sin cambios':'Sin contraseña (recomendado)'}catch(e){}}
+ $('cpw').placeholder=c.auth?'Sin cambios':'Sin contraseña (recomendado)';
+ $('tgt').placeholder=c.tgToken?'Token: sin cambios':'Token del bot (de @BotFather)';$('tgu').value=c.tgUsers;$('tgn').value=c.tgNotify?1:0;
+ $('tgdel').style.display=c.tgToken?'block':'none'}catch(e){}}
+function saveTg(){const t=$('tgt').value.trim(),u=$('tgu').value.trim();
+ if(t&&!/^\d+:[\w-]{30,}$/.test(t))return toast('El token tiene la forma 123456:ABC…');
+ if(u&&!/^\d+([ ,;]+\d+)*$/.test(u))return toast('IDs: solo números separados por comas');
+ const b={tgUsers:u,tgNotify:$('tgn').value=='1'};if(t)b.tgToken=t;
+ api('POST','/api/config',b,'Telegram guardado').then(r=>{if(r){$('tgt').value='';loadCfg()}})}
 function saveCfg(){const n=$('cname').value.trim(),p=$('cpw').value,a=$('cap').value.trim(),ap=$('capw').value;
  if(!n)return toast('Escribe un nombre');
  if(new TextEncoder().encode(n).length>32)return toast('Nombre demasiado largo');

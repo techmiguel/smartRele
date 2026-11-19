@@ -64,6 +64,13 @@ void load() {
   copyStr(settings.adminPass, sizeof(settings.adminPass), doc["admin"] | "");
   copyStr(settings.tz, sizeof(settings.tz), doc["tz"] | "UTC0");
   copyStr(settings.ntpServer, sizeof(settings.ntpServer), doc["ntp"] | "pool.ntp.org");
+  copyStr(settings.tgToken, sizeof(settings.tgToken), doc["tgToken"] | "");
+  settings.tgNotify = doc["tgNotify"] | true;
+  settings.tgUserCount = 0;
+  for (JsonVariant u : doc["tgUsers"].as<JsonArray>()) {
+    int64_t id = u.as<int64_t>();
+    if (id > 0 && settings.tgUserCount < MAX_TG_USERS) settings.tgUsers[settings.tgUserCount++] = id;
+  }
   uint8_t pm = doc["powerOn"] | 0;
   settings.powerOn = pm <= 2 ? static_cast<PowerOnMode>(pm) : PowerOnMode::Off;
 
@@ -98,6 +105,10 @@ bool save() {
   doc["tz"] = settings.tz;
   doc["ntp"] = settings.ntpServer;
   doc["powerOn"] = static_cast<uint8_t>(settings.powerOn);
+  doc["tgToken"] = settings.tgToken;
+  doc["tgNotify"] = settings.tgNotify;
+  JsonArray tu = doc["tgUsers"].to<JsonArray>();
+  for (uint8_t i = 0; i < settings.tgUserCount; i++) tu.add(settings.tgUsers[i]);
   JsonObject c = doc["cycle"].to<JsonObject>();
   c["enabled"] = settings.cycle.enabled;
   c["on"] = settings.cycle.onSec;

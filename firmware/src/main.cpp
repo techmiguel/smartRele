@@ -1,7 +1,8 @@
 // SmartRele · rele-esp12f — firmware v1
 //
 // The relay is controlled over Wi-Fi only: on/off, state-change timer, cyclic ON/OFF
-// routine and weekly schedules. Web interface and REST API on port 80.
+// routine and weekly schedules. Web interface and REST API on port 80, and a Telegram bot
+// for control over the Internet.
 
 #include <Arduino.h>
 
@@ -10,6 +11,7 @@
 #include "relay.h"
 #include "scheduler.h"
 #include "settings.h"
+#include "telegram.h"
 #include "web.h"
 
 void setup() {
@@ -29,6 +31,7 @@ void setup() {
   network::begin();
   scheduler::begin();
   web::begin();
+  telegram::begin();
   Serial.printf("[sys] ready: http://%s.local/\n", network::hostname().c_str());
 }
 
@@ -37,4 +40,5 @@ void loop() {
   web::loop();
   relay::loop();
   scheduler::loop();
+  telegram::loop();
 }

@@ -189,12 +189,13 @@ These explicit options are needed because the plot settings stored in the board 
 
 ## Firmware
 
-The [`firmware/`](firmware/) folder holds the board's own firmware (PlatformIO, Arduino core for ESP8266). In this version the relay is controlled over Wi-Fi only, from a built-in web page or a JSON REST API:
+The [`firmware/`](firmware/) folder holds the board's own firmware (PlatformIO, Arduino core for ESP8266). The relay is controlled over Wi-Fi from a built-in web page or a JSON REST API, and from anywhere on the Internet through a Telegram bot:
 
 - manual on / off;
 - state-change timer (turn on, off or toggle after 1 s – 7 days);
 - cyclic ON/OFF routine (on for one period, off for another, repeated);
-- up to 16 weekly schedules synchronised over NTP, with a configurable time zone.
+- up to 16 weekly schedules synchronised over NTP, with a configurable time zone;
+- Telegram bot (optional): remote control and notifications with no server and no port forwarding, so it also works on a phone hotspot or behind CGNAT.
 
 On first boot it opens the `SmartRele-XXXXXX` setup access point; holding SW1 for 8 s erases the Wi-Fi settings. Setup, behaviour, API and security notes are in [`firmware/README.md`](firmware/README.md).
 

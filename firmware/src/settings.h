@@ -4,6 +4,7 @@
 #include <Arduino.h>
 
 constexpr uint8_t MAX_SCHEDULES = 16;
+constexpr uint8_t MAX_TG_USERS = 4;
 
 enum class RelayAction : uint8_t { Off = 0, On = 1, Toggle = 2 };
 enum class PowerOnMode : uint8_t { Off = 0, On = 1, Last = 2 };
@@ -33,6 +34,10 @@ struct Settings {
   char adminPass[33] = "";   // empty = web and OTA without password (not recommended)
   char tz[64] = "UTC0";      // POSIX time zone, e.g. "COT5" or "CET-1CEST,M3.5.0,M10.5.0/3"
   char ntpServer[48] = "pool.ntp.org";
+  char tgToken[64] = "";     // Telegram bot token; empty = bot disabled
+  int64_t tgUsers[MAX_TG_USERS] = {};  // Telegram user IDs allowed to control the relay
+  uint8_t tgUserCount = 0;
+  bool tgNotify = true;      // notify state changes not made from Telegram
   PowerOnMode powerOn = PowerOnMode::Off;
   CycleConfig cycle;
   Schedule schedules[MAX_SCHEDULES];
