@@ -13,13 +13,16 @@
 namespace {
 constexpr const char* HOST = "api.telegram.org";
 constexpr size_t MAX_RESPONSE = 6144;         // larger replies are skipped (see readResponse)
-constexpr uint32_t MIN_HEAP_BLOCK = 24000;    // TLS buffers (16.7 kB) + BearSSL state
+// Heap used by a TLS connection besides its buffers: BearSSL stack (6.2 kB), client and
+// X.509 contexts (~7 kB) and some margin for the rest of the firmware.
+constexpr uint32_t TLS_OVERHEAD = 15000;
 constexpr uint32_t REQUEST_TIMEOUT_MS = 15000;
 constexpr uint8_t QUEUE_SIZE = 6;
 
 BearSSL::WiFiClientSecure client;
 BearSSL::X509List* anchors = nullptr;
 BearSSL::Session session;  // TLS session resumption: faster reconnects
+int8_t smallFragments = -1;  // -1 unknown; 1 if the server accepts 1 kB TLS records (saves 15 kB)
 
 enum class Req : uint8_t { None, GetMe, SetCommands, Updates, Send };
 Req inFlight = Req::None;
@@ -159,28 +162,42 @@ void shutdown() {
 }
 
 bool connect() {
-  if (ESP.getMaxFreeBlockSize() < MIN_HEAP_BLOCK) {
-    fail(F("Memoria insuficiente"));
-    return false;
-  }
   if (!anchors) {
     String pem = FPSTR(TELEGRAM_CA);  // BearSSL parses from RAM, not from flash
     anchors = new BearSSL::X509List(pem.c_str());
   }
+  // Max Fragment Length negotiation: with it, the receive buffer drops from 16.7 kB to 1 kB.
+  // The probe is a short handshake without big buffers; repeated until a connection succeeds.
+  if (smallFragments < 0) {
+    bool ok = BearSSL::WiFiClientSecure::probeMaxFragmentLength(HOST, 443, 1024);
+    Serial.printf("[tg] 1 kB TLS fragments %s\n", ok ? "supported" : "not supported");
+    if (ok) smallFragments = 1;
+  }
+  int rx = smallFragments == 1 ? 1024 : 16384;
+  int tx = smallFragments == 1 ? 1024 : 512;
+  uint32_t need = rx + tx + TLS_OVERHEAD;
+  uint32_t heap = ESP.getFreeHeap(), block = ESP.getMaxFreeBlockSize();
+  if (heap < need || block < static_cast<uint32_t>(rx) + 400) {
+    fail(String(F("Memoria insuficiente: libre ")) + heap + F(" B (bloque ") + block + F(" B), necesita ") + need + F(" B"));
+    return false;
+  }
   client.setTrustAnchors(anchors);
   client.setX509Time(time(nullptr));
   client.setSession(&session);
-  client.setBufferSizes(16384, 512);  // the server does not support smaller TLS fragments
+  client.setBufferSizes(rx, tx);
   client.setTimeout(8000);
   uint32_t t = millis();
   if (!client.connect(HOST, 443)) {
     char buf[80];
     int code = client.getLastSSLError(buf, sizeof(buf));
     shutdown();
-    fail(code ? String(F("Error TLS: ")) + buf : String(F("No se pudo conectar con Telegram")));
+    if (code) fail(String(F("Error TLS ")) + code + F(": ") + buf);
+    else fail(String(F("No se pudo conectar con Telegram (memoria libre ")) + ESP.getFreeHeap() + F(" B)"));
     return false;
   }
-  Serial.printf("[tg] connected in %lu ms, heap %u\n", (unsigned long)(millis() - t), ESP.getFreeHeap());
+  if (smallFragments < 0) smallFragments = 0;
+  Serial.printf("[tg] connected in %lu ms, rx buffer %d B, heap %u\n", (unsigned long)(millis() - t), rx,
+                ESP.getFreeHeap());
   return true;
 }
 

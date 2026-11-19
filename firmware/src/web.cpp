@@ -171,6 +171,7 @@ void handleStatus() {
   s["fw"] = FW_VERSION;
   s["uptime"] = millis() / 1000;
   s["heap"] = ESP.getFreeHeap();
+  s["maxBlock"] = ESP.getMaxFreeBlockSize();
   s["reset"] = ESP.getResetReason();
   sendJson(200, doc);
 }

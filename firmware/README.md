@@ -203,7 +203,7 @@ Changes made from Telegram are answered in the chat and are not notified again; 
 - Commands typically take 1–2 s. Commands sent while the relay was offline and that arrive more than **2 minutes late are not executed**: the bot says so, to avoid surprises such as a lamp turning on hours later.
 - Only the listed IDs can control the relay. Anyone else who writes to the bot is only told their own ID.
 - The connection stays open; it costs roughly 3–5 MB of mobile data per day.
-- The TLS connection holds about 23 kB of RAM while the bot is active. The CPU runs at 160 MHz so that the handshake (the only part that blocks the main loop, once per connection) takes about 1 s.
+- The TLS connection holds about 18 kB of RAM if the server accepts 1 kB TLS records (checked on the first connection), or about 32 kB otherwise; `GET /api/status` shows `sys.heap` and `sys.maxBlock`. If there is not enough memory, *Ajustes → Telegram* says so with the numbers. The CPU runs at 160 MHz so that the handshake (the only part that blocks the main loop, once per connection) takes about 1 s.
 - The certificate of `api.telegram.org` is verified against the Go Daddy Root G2 root, with Starfield Root G2 and ISRG Root X1 (Let's Encrypt) as spares (`src/telegram_ca.h`). If Telegram ever moves to a different authority, the status line shows a TLS error and a firmware update with the new root is needed.
 - Errors are shown in *Ajustes → Telegram* and in `GET /api/status` (`telegram.state`, `telegram.error`). An invalid token is retried every 10 minutes or as soon as it is changed. If another program uses the same bot (a webhook or a second device), Telegram rejects the connection: each relay needs its own bot.
 
