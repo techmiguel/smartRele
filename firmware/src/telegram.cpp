@@ -2,44 +2,81 @@
 
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
-#include <WiFiClientSecureBearSSL.h>
 
 #include "network.h"
 #include "relay.h"
 #include "scheduler.h"
 #include "settings.h"
+#include "tls_link.h"
+
+#ifdef ARDUINO_ARCH_ESP8266
+#include <StackThunk.h>
+#endif
+
+#ifdef TELEGRAM_TEST_ANCHORS  // host tests: trust the test server's certificate authority
+#include TELEGRAM_TEST_ANCHORS
+#else
 #include "telegram_ca.h"
+#endif
+
+TcpTransport& telegramTransport();  // tcp_transport.cpp (or the host test harness)
 
 namespace {
 constexpr const char* HOST = "api.telegram.org";
-constexpr size_t MAX_RESPONSE = 6144;         // larger replies are skipped (see readResponse)
-// Heap used by a TLS connection besides its buffers: BearSSL stack (6.2 kB), client and
-// X.509 contexts (~7 kB) and some margin for the rest of the firmware.
-constexpr uint32_t TLS_OVERHEAD = 15000;
-constexpr uint32_t REQUEST_TIMEOUT_MS = 15000;
+constexpr size_t MAX_RESPONSE = 4096;  // larger updates are skipped (see handleOversize)
+constexpr size_t MAX_TEXT = 1500;      // longer outgoing texts are cut
 constexpr uint8_t QUEUE_SIZE = 6;
+constexpr uint32_t HANDSHAKE_TIMEOUT_MS = 12000;
+constexpr uint32_t REQUEST_TIMEOUT_MS = 15000;
+constexpr uint32_t LONG_POLL_SLACK_MS = 8000;  // on top of POLL_SEC before giving up
+constexpr uint32_t ONLINE_GRACE_MS = 60000;     // reconnections shorter than this are not errors
+// Waits between connection attempts; the last one repeats. Short on purpose: after a network
+// change (VPN, mobile data off and on) the bot must come back within half a minute.
+constexpr uint16_t BACKOFF_S[] = {1, 2, 5, 10, 20};
+constexpr uint8_t BACKOFF_STEPS = sizeof(BACKOFF_S) / sizeof(BACKOFF_S[0]);
+// Engine buffer for records of up to 2 kB, if the server accepts the Max Fragment Length
+// extension (16.7 kB otherwise).
+constexpr size_t SMALL_BUF = 2048 + 325;
 
-BearSSL::WiFiClientSecure client;
-BearSSL::X509List* anchors = nullptr;
-BearSSL::Session session;  // TLS session resumption: faster reconnects
-int8_t smallFragments = -1;  // -1 unknown; 1 if the server accepts 1 kB TLS records (saves 15 kB)
+// ---------------------------------------------------------------- memory
+// Allocated once, the first time the bot is enabled, and never freed: every reconnection reuses
+// it, so heap fragmentation cannot leave the bot without memory after hours of operation.
+br_ssl_client_context* sc = nullptr;
+br_x509_minimal_context* xc = nullptr;
+unsigned char* iobuf = nullptr;
+size_t iobufSize = 0;
+int8_t smallRecords = -1;  // -1 unknown, 0 server sends full records, 1 accepts 2 kB records
+size_t usedLen = 0;        // part of the buffer given to the current connection
 
+TlsLink link;
+
+enum class Phase : uint8_t { Idle, Handshake, Ready, Sending, Waiting };
+Phase phase = Phase::Idle;
 enum class Req : uint8_t { None, GetMe, SetCommands, Updates, Send };
 Req inFlight = Req::None;
-uint32_t deadline = 0;
-String resp;
-bool respOverflow = false;
 
-int64_t offset = 0;          // next update_id to fetch
-bool haveMe = false;         // getMe answered: the token is valid
-bool commandsSet = false;    // command menu sent once per boot
+String out;          // request being written
+size_t outPos = 0;
+String resp;         // response being read
+bool respOverflow = false;
+uint32_t phaseDeadline = 0;
+
+int64_t offset = 0;  // next update_id to fetch
+bool haveMe = false;
+bool commandsSet = false;
 bool bootNotified = false;
 bool restartAfterAck = false;
-bool tokenRejected = false;
-uint32_t retryAt = 0;
-uint32_t backoff = 0;
+bool restarting = false;     // restart requested: the bot stays quiet until it happens
+bool wasOnNetwork = false;
 bool lastOn = false;
-String bot, error;
+
+uint32_t retryAt = 0;
+uint8_t backoffStep = 0;
+uint32_t lastOkAt = 0;     // last complete response (millis)
+bool everOk = false;
+uint32_t linkUpAt = 0;
+uint32_t connects = 0, failures = 0;
+String bot, error, lastFailure;
 
 struct Out {
   int64_t chat = 0;
@@ -68,22 +105,22 @@ bool reached(uint32_t t) { return static_cast<int32_t>(millis() - t) >= 0; }
 
 String fmtDur(uint32_t s) {
   uint32_t d = s / 86400, h = s % 86400 / 3600, m = s % 3600 / 60, x = s % 60;
-  String out;
-  auto add = [&out](uint32_t v, const char* unit) {
-    if (out.length()) out += ' ';
-    out += v;
-    out += ' ';
-    out += unit;
+  String o;
+  auto add = [&o](uint32_t v, const char* unit) {
+    if (o.length()) o += ' ';
+    o += v;
+    o += ' ';
+    o += unit;
   };
   if (d) add(d, "d");
   if (h) add(h, "h");
   if (m && !d) add(m, "min");
-  if ((x && !d && !h) || !out.length()) add(x, "s");
-  return out;
+  if ((x && !d && !h) || !o.length()) add(x, "s");
+  return o;
 }
 
 // "45s", "30m", "2h", "1h30m", "1d"; a bare number means minutes.
-bool parseDuration(const char* s, uint32_t& out) {
+bool parseDuration(const char* s, uint32_t& result) {
   uint64_t total = 0;
   bool any = false;
   while (*s) {
@@ -105,7 +142,7 @@ bool parseDuration(const char* s, uint32_t& out) {
     any = true;
   }
   if (!any || total == 0 || total > relay::TIMER_MAX_SEC) return false;
-  out = total;
+  result = total;
   return true;
 }
 
@@ -117,14 +154,21 @@ bool authorized(int64_t user) {
 
 void enqueue(int64_t chat, const String& text, bool keyboard = false) {
   if (qLen == QUEUE_SIZE) {  // full: drop the oldest
+    queue[qHead].text = String();
     qHead = (qHead + 1) % QUEUE_SIZE;
     qLen--;
   }
   Out& o = queue[(qHead + qLen) % QUEUE_SIZE];
   o.chat = chat;
-  o.text = text;
+  o.text = text.length() > MAX_TEXT ? text.substring(0, MAX_TEXT) : text;
   o.keyboard = keyboard;
   qLen++;
+}
+
+void dequeue() {
+  queue[qHead].text = String();
+  qHead = (qHead + 1) % QUEUE_SIZE;
+  qLen--;
 }
 
 void notifyAll(const String& text) {
@@ -140,102 +184,157 @@ const char* sourceText(const char* src) {
   return "al arrancar";
 }
 
-String stateLine() {
-  return relay::isOn() ? F("🟢 Encendido") : F("⚫ Apagado");
+String stateLine() { return relay::isOn() ? F("🟢 Encendido") : F("⚫ Apagado"); }
+
+String linkErrorText(int err) {
+  switch (err) {
+    case TlsLink::ERR_TCP_CONNECT: return F("Sin acceso a api.telegram.org (¿hay datos en el hotspot? ¿una VPN?)");
+    case TlsLink::ERR_TCP_CLOSED: return F("La conexión con Telegram se cortó");
+    case BR_ERR_X509_NOT_TRUSTED: return F("Certificado de Telegram no reconocido: hace falta actualizar el firmware");
+    case BR_ERR_X509_EXPIRED: return F("Certificado fuera de fecha: ¿la hora del relé es correcta?");
+    case BR_ERR_X509_BAD_SERVER_NAME: return F("El servidor no es api.telegram.org (¿una VPN o un proxy en medio?)");
+    default: return String(F("Error TLS ")) + err;
+  }
 }
 
 // ---------------------------------------------------------------- connection
-void fail(const String& why, uint32_t retryMs = 0) {
-  error = why;
-  if (!retryMs) {
-    backoff = backoff ? min<uint32_t>(backoff * 2, 300000) : 5000;
-    retryMs = backoff;
+bool allocateTls() {
+  if (iobuf) return true;
+#ifdef ARDUINO_ARCH_ESP8266
+  // Separate 6.2 kB stack for BearSSL (see tls_link.cpp), also kept for good.
+  static bool thunk = false;
+  if (!thunk) {
+    if (ESP.getMaxFreeBlockSize() < 6400) {  // stack_thunk_add_ref() aborts if malloc fails
+      error = F("Memoria insuficiente para la pila TLS: reinicia el relé");
+      return false;
+    }
+    stack_thunk_add_ref();
+    thunk = true;
   }
-  retryAt = millis() + retryMs;
-  Serial.printf("[tg] %s (retry in %lu s)\n", why.c_str(), (unsigned long)(retryMs / 1000));
-}
-
-void shutdown() {
-  client.stop();
-  inFlight = Req::None;
-  resp = String();
-}
-
-bool connect() {
-  if (!anchors) {
-    String pem = FPSTR(TELEGRAM_CA);  // BearSSL parses from RAM, not from flash
-    anchors = new BearSSL::X509List(pem.c_str());
-  }
-  // Max Fragment Length negotiation: with it, the receive buffer drops from 16.7 kB to 1 kB.
-  // The probe is a short handshake without big buffers; repeated until a connection succeeds.
-  if (smallFragments < 0) {
-    bool ok = BearSSL::WiFiClientSecure::probeMaxFragmentLength(HOST, 443, 1024);
-    Serial.printf("[tg] 1 kB TLS fragments %s\n", ok ? "supported" : "not supported");
-    if (ok) smallFragments = 1;
-  }
-  int rx = smallFragments == 1 ? 1024 : 16384;
-  int tx = smallFragments == 1 ? 1024 : 512;
-  uint32_t need = rx + tx + TLS_OVERHEAD;
-  uint32_t heap = ESP.getFreeHeap(), block = ESP.getMaxFreeBlockSize();
-  if (heap < need || block < static_cast<uint32_t>(rx) + 400) {
-    fail(String(F("Memoria insuficiente: libre ")) + heap + F(" B (bloque ") + block + F(" B), necesita ") + need + F(" B"));
+#endif
+  // Contexts first, then the large buffer: three blocks that stay put for good.
+  if (!sc) sc = static_cast<br_ssl_client_context*>(malloc(sizeof(br_ssl_client_context)));
+  if (!xc) xc = static_cast<br_x509_minimal_context*>(malloc(sizeof(br_x509_minimal_context)));
+  if (sc && xc) iobuf = static_cast<unsigned char*>(malloc(BR_SSL_BUFSIZE_MONO));
+  if (!sc || !xc || !iobuf) {
+    error = String(F("Memoria insuficiente (libre ")) + ESP.getFreeHeap() + F(" B): reinicia el relé");
     return false;
   }
-  client.setTrustAnchors(anchors);
-  client.setX509Time(time(nullptr));
-  client.setSession(&session);
-  client.setBufferSizes(rx, tx);
-  client.setTimeout(8000);
-  uint32_t t = millis();
-  if (!client.connect(HOST, 443)) {
-    char buf[80];
-    int code = client.getLastSSLError(buf, sizeof(buf));
-    shutdown();
-    if (code) fail(String(F("Error TLS ")) + code + F(": ") + buf);
-    else fail(String(F("No se pudo conectar con Telegram (memoria libre ")) + ESP.getFreeHeap() + F(" B)"));
-    return false;
-  }
-  if (smallFragments < 0) smallFragments = 0;
-  Serial.printf("[tg] connected in %lu ms, rx buffer %d B, heap %u\n", (unsigned long)(millis() - t), rx,
-                ESP.getFreeHeap());
+  iobufSize = BR_SSL_BUFSIZE_MONO;
+  link.init(sc, xc, TELEGRAM_TA, TELEGRAM_TA_COUNT);
+  Serial.printf("[tg] TLS memory reserved (%u B), heap %u\n",
+                (unsigned)(sizeof(*sc) + sizeof(*xc) + BR_SSL_BUFSIZE_MONO), ESP.getFreeHeap());
   return true;
 }
 
-bool send(Req type, const char* method, const String& body, uint32_t timeoutMs = REQUEST_TIMEOUT_MS) {
-  String req;
-  req.reserve(220 + body.length());
-  req = F("POST /bot");
-  req += settings.tgToken;
-  req += '/';
-  req += method;
-  req += F(" HTTP/1.1\r\nHost: api.telegram.org\r\nContent-Type: application/json\r\nContent-Length: ");
-  req += body.length();
-  req += F("\r\nConnection: keep-alive\r\n\r\n");
-  req += body;
-  if (client.write(reinterpret_cast<const uint8_t*>(req.c_str()), req.length()) != req.length()) {
-    shutdown();
-    fail(F("Conexión con Telegram perdida"), 1000);
-    return false;
+void goIdle(const String& why) {
+  link.close();
+  phase = Phase::Idle;
+  inFlight = Req::None;
+  out = String();
+  resp = String();
+  failures++;
+  lastFailure = why;
+  uint32_t wait = BACKOFF_S[backoffStep] * 1000UL;
+  if (backoffStep + 1 < BACKOFF_STEPS) backoffStep++;
+  retryAt = millis() + wait;
+  // Short interruptions are normal (the long poll, network hiccups): they only count as an
+  // error for the web interface if Telegram has been unreachable for a while.
+  if (!everOk || millis() - lastOkAt > ONLINE_GRACE_MS) error = why;
+  Serial.printf("[tg] %s; retry in %lu s\n", why.c_str(), (unsigned long)(wait / 1000));
+}
+
+void startConnect() {
+  // Small records first; the full-size buffer only if the server does not accept them.
+  size_t len = smallRecords == 0 ? iobufSize : SMALL_BUF;
+  if (len > iobufSize) len = iobufSize;
+  usedLen = len;
+  connects++;
+  uint32_t t = millis();
+  if (!link.open(telegramTransport(), HOST, 443, iobuf, len, time(nullptr))) {
+    goIdle(linkErrorText(link.lastError()));
+    return;
   }
+  Serial.printf("[tg] TCP connected in %lu ms\n", (unsigned long)(millis() - t));
+  phase = Phase::Handshake;
+  phaseDeadline = millis() + HANDSHAKE_TIMEOUT_MS;
+}
+
+void reconnectNow() {
+  link.close();
+  phase = Phase::Idle;
+  retryAt = millis();
+}
+
+void onHandshakeDone() {
+  bool small = link.smallRecords();
+  Serial.printf("[tg] TLS ready (%s records%s), heap %u\n", small ? "2 kB" : "16 kB",
+                link.resumed() ? ", resumed" : "", ESP.getFreeHeap());
+  if (smallRecords < 0) {
+    // First connection since boot: learn whether the server accepts 2 kB records.
+    smallRecords = small ? 1 : 0;
+    if (small && iobufSize > SMALL_BUF) {
+      // It does: give the rest of the buffer back to the heap. The link is closed while the
+      // block is resized, because realloc() may move it.
+      link.close();
+      unsigned char* p = static_cast<unsigned char*>(realloc(iobuf, SMALL_BUF));
+      if (p) {
+        iobuf = p;
+        iobufSize = SMALL_BUF;
+      }
+      Serial.printf("[tg] buffer reduced to %u B, heap %u\n", (unsigned)iobufSize, ESP.getFreeHeap());
+      return reconnectNow();
+    }
+    // It does not, but the handshake fitted the small buffer: later records might not.
+    if (!small && usedLen < iobufSize) return reconnectNow();
+  } else if (!small && usedLen < BR_SSL_BUFSIZE_MONO) {
+    // The server used to accept small records and no longer does: the buffer has to grow.
+    smallRecords = 0;
+    link.close();
+    unsigned char* p = static_cast<unsigned char*>(realloc(iobuf, BR_SSL_BUFSIZE_MONO));
+    if (!p) return goIdle(F("Memoria insuficiente para la conexión segura: reinicia el relé"));
+    iobuf = p;
+    iobufSize = BR_SSL_BUFSIZE_MONO;
+    return reconnectNow();
+  }
+  linkUpAt = millis();
+  phase = Phase::Ready;
+}
+
+// Handshake that failed because a record did not fit the small buffer: the server ignores the
+// Max Fragment Length extension. Retry at once with the full buffer.
+bool retryWithFullBuffer(int err) {
+  if (err != BR_ERR_TOO_LARGE || smallRecords == 0 || iobufSize < BR_SSL_BUFSIZE_MONO) return false;
+  smallRecords = 0;
+  link.close();
+  Serial.println(F("[tg] server sends full-size records; using the 16 kB buffer"));
+  phase = Phase::Idle;
+  retryAt = millis();
+  return true;
+}
+
+void beginRequest(Req type, const char* method, const String& body) {
+  out.reserve(200 + body.length());
+  out = F("POST /bot");
+  out += settings.tgToken;
+  out += '/';
+  out += method;
+  out += F(" HTTP/1.1\r\nHost: api.telegram.org\r\nContent-Type: application/json\r\nContent-Length: ");
+  out += body.length();
+  out += F("\r\nConnection: keep-alive\r\n\r\n");
+  out += body;
+  outPos = 0;
   inFlight = type;
-  deadline = millis() + timeoutMs;
   resp = String();
   respOverflow = false;
-  return true;
+  phase = Phase::Sending;
+  uint32_t timeout = REQUEST_TIMEOUT_MS;
+  if (type == Req::Updates && !restartAfterAck) timeout = telegram::POLL_SEC * 1000UL + LONG_POLL_SLACK_MS;
+  phaseDeadline = millis() + timeout;
 }
 
 // Returns 1 when a full response is in `body`, 0 while waiting and -1 if it cannot be read.
-int readResponse(int& status, String& body, bool& closeAfter) {
-  uint8_t buf[256];
-  while (client.available() > 0) {
-    int n = client.read(buf, sizeof(buf));
-    if (n <= 0) break;
-    if (resp.length() + n > MAX_RESPONSE) {
-      respOverflow = true;
-      return -1;
-    }
-    resp.concat(reinterpret_cast<const char*>(buf), n);
-  }
+int parseResponse(int& status, String& body, bool& closeAfter) {
   int he = resp.indexOf(F("\r\n\r\n"));
   if (he < 0) return 0;
   String headers = resp.substring(0, he);
@@ -252,7 +351,7 @@ int readResponse(int& status, String& body, bool& closeAfter) {
     return 1;
   }
   if (headers.indexOf(F("transfer-encoding: chunked")) >= 0) {
-    if (!resp.endsWith(F("\r\n0\r\n\r\n")) && !resp.endsWith(F("\n0\r\n\r\n"))) return 0;
+    if (!resp.endsWith(F("\r\n0\r\n\r\n"))) return 0;
     body = String();
     size_t p = start;
     while (p < resp.length()) {
@@ -273,11 +372,11 @@ void requestUpdates() {
   JsonDocument doc;
   doc["offset"] = offset;
   doc["timeout"] = restartAfterAck ? 0 : telegram::POLL_SEC;
-  doc["limit"] = 3;
+  doc["limit"] = 1;
   doc["allowed_updates"].add("message");
   String body;
   serializeJson(doc, body);
-  send(Req::Updates, "getUpdates", body, (doc["timeout"].as<uint32_t>() + 15) * 1000UL);
+  beginRequest(Req::Updates, "getUpdates", body);
 }
 
 void requestSetCommands() {
@@ -291,12 +390,15 @@ void requestSetCommands() {
       "{\"command\":\"rutina\",\"description\":\"Ej.: /rutina 10m 50m\"},"
       "{\"command\":\"detener\",\"description\":\"Detener la rutina\"},"
       "{\"command\":\"avisos\",\"description\":\"Avisos de cambios: si / no\"},"
+      "{\"command\":\"diagnostico\",\"description\":\"Estado de la conexión\"},"
       "{\"command\":\"ayuda\",\"description\":\"Lista de órdenes\"}]}";
-  send(Req::SetCommands, "setMyCommands", FPSTR(BODY));
+  beginRequest(Req::SetCommands, "setMyCommands", FPSTR(BODY));
 }
 
 void requestSend() {
-  Out& o = queue[qHead];
+  // The message leaves the queue only when Telegram answers: a connection that drops in the
+  // meantime makes it go out again after reconnecting instead of losing it.
+  const Out& o = queue[qHead];
   JsonDocument doc;
   doc["chat_id"] = o.chat;
   doc["text"] = o.text;
@@ -312,11 +414,7 @@ void requestSend() {
   }
   String body;
   serializeJson(doc, body);
-  if (send(Req::Send, "sendMessage", body)) {
-    o.text = String();
-    qHead = (qHead + 1) % QUEUE_SIZE;
-    qLen--;
-  }
+  beginRequest(Req::Send, "sendMessage", body);
 }
 
 // ---------------------------------------------------------------- commands
@@ -332,6 +430,7 @@ String helpText() {
          "/rutina 10m 50m – encendido 10 min y apagado 50 min, sin fin\n"
          "/detener – detiene la rutina\n"
          "/avisos si | no – avisos cuando el relé cambia por otra vía\n"
+         "/diagnostico – estado de la conexión y de la memoria\n"
          "/id – tu ID de Telegram\n"
          "/reiniciar – reinicia el dispositivo\n\n"
          "Duraciones: 45s, 30m, 2h, 1h30m, 1d (sin unidad = minutos).");
@@ -375,7 +474,35 @@ String statusText() {
   t += settings.wifiSsid;
   t += F(" · ");
   t += WiFi.RSSI();
-  t += F(" dBm");
+  t += F(" dBm · ");
+  t += WiFi.localIP().toString();
+  return t;
+}
+
+String diagText() {
+  String t = F("🩺 Diagnóstico\n");
+  t += F("Encendido hace ");
+  t += fmtDur(millis() / 1000);
+  t += F(" (");
+  t += ESP.getResetReason();
+  t += F(")\nConexión con Telegram activa hace ");
+  t += fmtDur((millis() - linkUpAt) / 1000);
+  t += F("\nConexiones: ");
+  t += connects;
+  t += F(" · cortes: ");
+  t += failures;
+  if (lastFailure.length()) {
+    t += F("\nÚltimo corte: ");
+    t += lastFailure;
+  }
+  t += F("\nRegistros TLS: ");
+  t += smallRecords == 1 ? F("2 kB") : F("16 kB");
+  t += F("\nMemoria libre: ");
+  t += ESP.getFreeHeap();
+  t += F(" B (bloque mayor ");
+  t += ESP.getMaxFreeBlockSize();
+  t += F(" B)\nFirmware ");
+  t += FW_VERSION;
   return t;
 }
 
@@ -411,6 +538,7 @@ void handleCommand(int64_t chat, const String& text) {
     return enqueue(chat, stateLine());
   }
   if (cmd == F("estado") || cmd == F("status")) return enqueue(chat, statusText());
+  if (cmd == F("diagnostico") || cmd == F("diagnóstico") || cmd == F("diag")) return enqueue(chat, diagText());
 
   if (cmd == F("temporizador") || cmd == F("timer")) {
     // "/temporizador 30m [encender|apagar]"; by default it does the opposite of the current state.
@@ -469,7 +597,7 @@ void handleCommand(int64_t chat, const String& text) {
   }
   if (cmd == F("id")) return enqueue(chat, String(F("Tu ID de Telegram es ")) + i64(chat));
   if (cmd == F("reiniciar")) {
-    restartAfterAck = true;  // restarts once Telegram has confirmed this message (see loop)
+    restartAfterAck = true;  // restarts once Telegram has confirmed this message (see handleResponse)
     return enqueue(chat, F("Reiniciando…"));
   }
   enqueue(chat, F("No entiendo esa orden. Escribe /ayuda para ver la lista."));
@@ -517,7 +645,7 @@ void handleUpdates(const String& body) {
     uint32_t now = time(nullptr);
     if (date && now > date + telegram::MAX_AGE_SEC) {
       String t = F("⌛ Orden «");
-      t += text;
+      t += String(text).substring(0, 60);
       t += F("» ignorada: llegó ");
       t += fmtDur(now - date);
       t += F(" tarde, porque el relé estaba sin conexión. Envíala de nuevo si aún la necesitas.");
@@ -529,31 +657,62 @@ void handleUpdates(const String& body) {
   }
 }
 
-void handleResponse(Req type, int status, const String& body) {
+// Integer value of "key" in raw JSON text, searching from `from` (-1 if not found).
+int64_t jsonIntAfter(const String& text, const char* key, int from = 0) {
+  int p = text.indexOf(key, from);
+  if (p < 0) return -1;
+  const char* c = text.c_str() + p + strlen(key);
+  while (*c == ' ' || *c == ':') c++;
+  if (*c != '-' && !isdigit(static_cast<unsigned char>(*c))) return -1;
+  return atoll(c);
+}
+
+// An update too large for the buffer (a very long message, or a reply quoting one): skip it,
+// and tell the sender if the beginning of the response says who it was.
+void handleOversize() {
+  int64_t id = jsonIntAfter(resp, "\"update_id\"");
+  if (id < 0) return;
+  offset = id + 1;
+  int c = resp.indexOf("\"chat\"");
+  int64_t chat = c >= 0 ? jsonIntAfter(resp, "\"id\"", c) : -1;
+  if (chat > 0 || chat < -1) enqueue(chat, F("Mensaje demasiado largo: envía solo la orden."));
+  Serial.println(F("[tg] oversized update skipped"));
+}
+
+void markOk() {
+  lastOkAt = millis();
+  everOk = true;
+  backoffStep = 0;
+  error = String();
+}
+
+// Returns false if the connection must be dropped.
+bool handleResponse(Req type, int status, const String& body) {
   if (status == 401 || status == 404) {
-    tokenRejected = true;
     haveMe = false;
     bot = String();
-    shutdown();
-    fail(F("Token no válido: revísalo en Ajustes"), 600000);
-    return;
+    error = F("Token no válido: revísalo en Ajustes");
+    lastFailure = error;
+    link.close();
+    phase = Phase::Idle;
+    retryAt = millis() + 600000;  // check again in 10 min, or as soon as the token changes
+    return false;
   }
   if (status == 409) {
-    shutdown();
-    fail(F("Otro programa está usando este bot (webhook u otro dispositivo)"), 60000);
-    return;
+    goIdle(F("Otro programa está usando este bot (webhook u otro dispositivo)"));
+    retryAt = millis() + 60000;
+    return false;
   }
-  if (status == 429 || status >= 500) {
-    shutdown();
-    fail(String(F("Telegram respondió ")) + status, 30000);
-    return;
+  if (status == 429 || status >= 500 || status == 0) {
+    goIdle(String(F("Telegram respondió ")) + status);
+    return false;
   }
-  backoff = 0;
-  error = String();
+  markOk();
   if (status != 200) {
-    // A single message that Telegram refuses (user blocked the bot, chat not found...).
+    // Telegram refuses this request (user blocked the bot, chat not found...): drop it.
     Serial.printf("[tg] HTTP %d: %s\n", status, body.c_str());
-    return;
+    if (type == Req::Send) dequeue();
+    return true;
   }
   switch (type) {
     case Req::GetMe: {
@@ -565,16 +724,21 @@ void handleResponse(Req type, int status, const String& body) {
       break;
     }
     case Req::SetCommands: commandsSet = true; break;
+    case Req::Send: dequeue(); break;
     case Req::Updates:
       if (restartAfterAck) {
         // This request carried the offset that confirms "/reiniciar", so it will not run again.
         network::requestRestart(300);
-        return;
+        restarting = true;
+        link.close();
+        phase = Phase::Idle;
+        return false;
       }
       handleUpdates(body);
       break;
     default: break;
   }
+  return true;
 }
 
 void trackRelay() {
@@ -590,69 +754,9 @@ void trackRelay() {
   t += sourceText(src);
   notifyAll(t);
 }
-}  // namespace
 
-namespace telegram {
-
-void begin() { lastOn = relay::isOn(); }
-
-void reconfigure() {
-  shutdown();
-  haveMe = commandsSet = tokenRejected = false;
-  bot = error = String();
-  offset = 0;
-  backoff = 0;
-  retryAt = millis();
-  qLen = 0;
-}
-
-void loop() {
-  if (!settings.tgToken[0]) {
-    if (client.connected() || inFlight != Req::None) shutdown();
-    return;
-  }
-  trackRelay();
-  if (!network::staConnected() || !scheduler::timeValid()) {
-    if (inFlight != Req::None) shutdown();
-    return;
-  }
-
-  if (inFlight != Req::None) {
-    int status = 0;
-    bool closeAfter = false;
-    String body;
-    int r = readResponse(status, body, closeAfter);
-    if (r == 0) {
-      if (reached(deadline) || !client.connected()) {
-        shutdown();
-        fail(F("Sin respuesta de Telegram"), 2000);
-      }
-      return;
-    }
-    Req type = inFlight;
-    inFlight = Req::None;
-    if (r < 0) {
-      // Response too large or unreadable. For getUpdates, skip the update that caused it.
-      if (type == Req::Updates && respOverflow) {
-        int p = resp.indexOf(F("\"update_id\":"));
-        if (p >= 0) offset = atoll(resp.c_str() + p + 12) + 1;
-      }
-      shutdown();
-      fail(F("Respuesta de Telegram no válida"), 2000);
-      return;
-    }
-    resp = String();
-    handleResponse(type, status, body);
-    if (closeAfter) client.stop();
-    return;
-  }
-
-  if (!client.connected()) {
-    if (!reached(retryAt) || tokenRejected) return;
-    if (!connect()) return;
-  }
-
-  if (!haveMe) return (void)send(Req::GetMe, "getMe", "{}");
+void nextRequest() {
+  if (!haveMe) return beginRequest(Req::GetMe, "getMe", "{}");
   if (!commandsSet) return requestSetCommands();
   if (!bootNotified) {
     bootNotified = true;
@@ -661,7 +765,7 @@ void loop() {
       t += settings.deviceName;
       t += F(" está en línea (");
       String reason = ESP.getResetReason();
-      t += reason == F("Power On") ? String(F("volvió la luz")) : reason;
+      t += reason == F("Power On") || reason == F("External System") ? String(F("volvió la luz")) : reason;
       t += F("). ");
       t += stateLine();
       t += '.';
@@ -672,15 +776,155 @@ void loop() {
   requestUpdates();
 }
 
+void pump() {
+  switch (phase) {
+    case Phase::Idle:
+      if (reached(retryAt)) startConnect();
+      return;
+
+    case Phase::Handshake: {
+      TlsLink::State st = link.poll();
+      if (st == TlsLink::State::Ready) return onHandshakeDone();
+      if (st == TlsLink::State::Failed) {
+        if (retryWithFullBuffer(link.lastError())) return;
+        return goIdle(linkErrorText(link.lastError()));
+      }
+      if (reached(phaseDeadline)) goIdle(F("Telegram no completó la conexión segura"));
+      return;
+    }
+
+    case Phase::Ready:
+      nextRequest();
+      return;
+
+    case Phase::Sending: {
+      if (link.poll() != TlsLink::State::Ready) return goIdle(linkErrorText(link.lastError()));
+      outPos += link.write(reinterpret_cast<const uint8_t*>(out.c_str()) + outPos, out.length() - outPos);
+      if (outPos >= out.length()) {
+        out = String();
+        phase = Phase::Waiting;
+      } else if (reached(phaseDeadline)) {
+        goIdle(F("No se pudo enviar a Telegram"));
+      }
+      return;
+    }
+
+    case Phase::Waiting: {
+      TlsLink::State st = link.poll();
+      uint8_t buf[256];
+      size_t n;
+      while ((n = link.read(buf, sizeof(buf))) > 0) {
+        if (resp.length() + n > MAX_RESPONSE) {
+          respOverflow = true;
+          break;
+        }
+        resp.concat(reinterpret_cast<const char*>(buf), n);
+      }
+      if (respOverflow) {
+        if (inFlight == Req::Updates) handleOversize();
+        return goIdle(F("Respuesta de Telegram demasiado grande"));
+      }
+      int status = 0;
+      bool closeAfter = false;
+      String body;
+      int r = parseResponse(status, body, closeAfter);
+      if (r < 0) return goIdle(F("Respuesta de Telegram no válida"));
+      if (r == 0) {
+        if (st != TlsLink::State::Ready) return goIdle(linkErrorText(link.lastError()));
+        if (reached(phaseDeadline)) goIdle(F("Sin respuesta de Telegram"));
+        return;
+      }
+      Req type = inFlight;
+      inFlight = Req::None;
+      resp = String();
+      phase = Phase::Ready;
+      if (!handleResponse(type, status, body)) return;
+      if (phase == Phase::Ready && (closeAfter || st != TlsLink::State::Ready)) {
+        // Server closed after this response (keep-alive limit): reconnect without counting it.
+        link.close();
+        phase = Phase::Idle;
+        retryAt = millis();
+      }
+      return;
+    }
+  }
+}
+}  // namespace
+
+namespace telegram {
+
+void begin() {
+  lastOn = relay::isOn();
+  // Reserve the TLS memory right after boot, while the heap is still in one piece.
+  if (settings.tgToken[0]) allocateTls();
+}
+
+void reconfigure() {
+  link.close();
+  phase = Phase::Idle;
+  inFlight = Req::None;
+  haveMe = commandsSet = false;
+  bot = error = lastFailure = String();
+  offset = 0;
+  backoffStep = 0;
+  retryAt = millis();
+  while (qLen) dequeue();
+  if (settings.tgToken[0]) allocateTls();
+}
+
+void loop() {
+  if (!settings.tgToken[0]) {
+    if (phase != Phase::Idle) reconfigure();
+    return;
+  }
+  if (restarting) return;
+  trackRelay();
+  bool online = network::staConnected() && scheduler::timeValid();
+  if (!online) {
+    if (phase != Phase::Idle) {
+      link.close();
+      phase = Phase::Idle;
+      inFlight = Req::None;
+    }
+    wasOnNetwork = false;
+    return;
+  }
+  if (!wasOnNetwork) {
+    // Wi-Fi just came (back): try at once instead of waiting for the backoff.
+    wasOnNetwork = true;
+    backoffStep = 0;
+    retryAt = millis();
+  }
+  if (!iobuf && !allocateTls()) return;
+  // Several steps per call when there is progress (e.g. response read, next request sent).
+  for (int i = 0; i < 4; i++) {
+    Phase before = phase;
+    pump();
+    if (phase == before && phase != Phase::Ready) break;
+  }
+}
+
 const char* state() {
   if (!settings.tgToken[0]) return "off";
   if (!network::staConnected() || !scheduler::timeValid()) return "waiting";
   if (error.length()) return "error";
-  return haveMe ? "online" : "connecting";
+  if (haveMe && (phase == Phase::Ready || phase == Phase::Sending || phase == Phase::Waiting)) return "online";
+  return "connecting";
 }
 
 const String& botName() { return bot; }
 const String& lastError() { return error; }
+
+void describe(JsonObject o) {
+  o["state"] = state();
+  o["bot"] = bot;
+  o["error"] = error;
+  o["lastFailure"] = lastFailure;
+  o["connects"] = connects;
+  o["failures"] = failures;
+  o["lastOk"] = everOk ? static_cast<int32_t>((millis() - lastOkAt) / 1000) : -1;
+  o["records"] = smallRecords == 1 ? 2048 : smallRecords == 0 ? 16384 : 0;
+}
 
 bool validToken(const char* t) {
   // "<digits>:<30+ characters of [A-Za-z0-9_-]>"

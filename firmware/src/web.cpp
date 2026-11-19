@@ -162,10 +162,7 @@ void handleStatus() {
   w["ap"] = network::apActive();
   w["apSsid"] = network::apSsid();
 
-  JsonObject tg = doc["telegram"].to<JsonObject>();
-  tg["state"] = telegram::state();
-  tg["bot"] = telegram::botName();
-  tg["error"] = telegram::lastError();
+  telegram::describe(doc["telegram"].to<JsonObject>());
 
   JsonObject s = doc["sys"].to<JsonObject>();
   s["fw"] = FW_VERSION;
