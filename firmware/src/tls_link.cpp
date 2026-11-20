@@ -33,6 +33,7 @@ bool TlsLink::open(TcpTransport& tcp, const char* host, uint32_t ip, uint16_t po
   bufLen_ = len;
   now_ = now;
   error_ = 0;
+  received_ = 0;
   resumed_ = mfln_ = false;
   if (!tcp.begin(ip, port)) {
     fail(ERR_TCP_CONNECT);
@@ -109,6 +110,7 @@ TlsLink::State TlsLink::poll() {
         if (avail > len) avail = len;
         size_t n = tcp_->read(buf, avail);
         if (n) {
+          received_ += n;
           br_ssl_engine_recvrec_ack(eng, n);  // decrypts; runs the handshake crypto
           progress = true;
         }

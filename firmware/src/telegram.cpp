@@ -34,9 +34,9 @@ constexpr const char* HOST = "api.telegram.org";
 constexpr size_t MAX_RESPONSE = 4096;  // larger updates are skipped (see handleOversize)
 constexpr size_t MAX_TEXT = 1500;      // longer outgoing texts are cut
 constexpr uint8_t QUEUE_SIZE = 6;
-// Base timeouts. On a slow or lossy link (2G/3G, a congested cell) they grow after each
-// timeout, up to 4 times, and shrink again after a run of good answers (see slower()).
-// Nothing blocks while waiting, so long timeouts cost nothing to the rest of the firmware.
+// Minimum timeouts. On a slow or lossy link (2G/3G, a congested cell) they follow the latency
+// actually measured (see sampleLatency()). Nothing blocks while waiting, so long timeouts cost
+// nothing to the rest of the firmware.
 constexpr uint32_t DNS_TIMEOUT_MS = 8000;
 constexpr uint32_t CONNECT_TIMEOUT_MS = 20000;  // TCP connect + TLS handshake
 constexpr uint32_t REQUEST_TIMEOUT_MS = 20000;
@@ -282,14 +282,24 @@ String ipText(uint32_t ip) {
   return String(b);
 }
 
-// How slow the network has proven lately (0-3): timeouts are multiplied by 1 + slow.
-uint8_t slow = 0;
-uint8_t okStreak = 0;
-uint32_t scaled(uint32_t ms) { return ms * (1 + slow); }
-void slower() {
-  if (slow < 3) slow++;
-  okStreak = 0;
+// Latency of the link as measured on answers that did arrive (TLS handshakes, replies): jumps
+// up at once with a slow sample, comes down by 1/8 of the difference with each faster one.
+// Timeouts are a few times this, with the minimums above. A timeout where nothing at all came
+// back is a dead path (VPN, no credit), not a slow one, and does not stretch them: dead
+// connections keep being detected quickly. A timeout with partial progress (half a handshake,
+// half a response) does.
+uint32_t latencyMs = 0;
+void sampleLatency(uint32_t ms) {
+  if (ms > latencyMs) latencyMs = ms;
+  else latencyMs -= (latencyMs - ms) / 8;
 }
+uint32_t clampMs(uint32_t v, uint32_t lo, uint32_t hi) { return v < lo ? lo : v > hi ? hi : v; }
+uint32_t dnsTimeout() { return clampMs(2 * latencyMs, DNS_TIMEOUT_MS, 30000); }
+uint32_t connectTimeout() { return clampMs(4 * latencyMs, CONNECT_TIMEOUT_MS, 90000); }
+uint32_t requestTimeout() { return clampMs(4 * latencyMs, REQUEST_TIMEOUT_MS, 90000); }
+uint32_t pollSlack() { return clampMs(3 * latencyMs, LONG_POLL_SLACK_MS, 60000); }
+uint32_t requestStartedAt = 0;
+uint8_t silentPolls = 0;  // long polls in a row that got no byte back on a fresh connection
 
 enum class Pick : uint8_t { Address, Dns };
 
@@ -324,7 +334,7 @@ void openLink() {
   if (!link.open(telegramTransport(), HOST, currentIp, 443, iobuf, len, time(nullptr)))
     return goIdle(linkErrorText(link.lastError()) + F(" · ") + ipText(currentIp) + F(" (") + currentSrc + ')');
   phase = Phase::Handshake;
-  phaseDeadline = millis() + scaled(CONNECT_TIMEOUT_MS);
+  phaseDeadline = millis() + connectTimeout();
 }
 
 void startConnect() {
@@ -332,7 +342,7 @@ void startConnect() {
   // DNS turn: ask without waiting; Phase::Resolving picks up the answer.
   if (telegramResolveStart(HOST)) {
     phase = Phase::Resolving;
-    phaseDeadline = millis() + scaled(DNS_TIMEOUT_MS);
+    phaseDeadline = millis() + dnsTimeout();
   } else {
     retryAt = millis();  // no DNS right now: next address at once
   }
@@ -360,6 +370,7 @@ void reconnectNow() {
 }
 
 void onHandshakeDone() {
+  sampleLatency(millis() - connectStartedAt);
   // The certificate is valid: this address is really api.telegram.org.
   attempt = 0;
   if (settings.tgIp != currentIp) {
@@ -429,9 +440,9 @@ void beginRequest(Req type, const char* method, const String& body) {
   resp = String();
   respOverflow = false;
   phase = Phase::Sending;
-  uint32_t timeout = scaled(REQUEST_TIMEOUT_MS);
-  if (type == Req::Updates && !restartAfterAck)
-    timeout = telegram::POLL_SEC * 1000UL + scaled(LONG_POLL_SLACK_MS);
+  uint32_t timeout = requestTimeout();
+  if (type == Req::Updates && !restartAfterAck) timeout = telegram::POLL_SEC * 1000UL + pollSlack();
+  requestStartedAt = millis();
   phaseDeadline = millis() + timeout;
 }
 
@@ -594,6 +605,9 @@ String diagText() {
   t += F(" (");
   t += currentSrc;
   t += ')';
+  t += F("\nLatencia medida: ");
+  t += latencyMs;
+  t += F(" ms");
   t += F("\nConexiones: ");
   t += connects;
   t += F(" · cortes: ");
@@ -869,10 +883,6 @@ void watchdog() {
 }
 
 void markOk() {
-  if (++okStreak >= 20) {  // a run of good answers: the network got better
-    okStreak = 0;
-    if (slow) slow--;
-  }
   downMs = 0;
   wdStage = 0;
   safetyRestarts = 0;
@@ -1006,7 +1016,9 @@ void pump() {
                       currentSrc + ')');
       }
       if (reached(phaseDeadline)) {
-        slower();
+        // Part of the handshake came back but not all of it: the link is slow. (Nothing at all
+        // back is a dead path or a middlebox that swallows the connection.)
+        if (link.received()) sampleLatency((millis() - connectStartedAt) / 2);
         goIdle(String(st == TlsLink::State::Connecting ? F("Sin respuesta TCP de ") : F("Conexión segura incompleta con ")) +
                ipText(currentIp) + F(" (") + currentSrc + ')');
       }
@@ -1024,7 +1036,7 @@ void pump() {
         out = String();
         phase = Phase::Waiting;
       } else if (reached(phaseDeadline)) {
-        slower();
+        if (outPos) sampleLatency((millis() - requestStartedAt) / 2);  // partly sent: slow link
         goIdle(F("No se pudo enviar a Telegram"));
       }
       return;
@@ -1053,7 +1065,10 @@ void pump() {
       if (r == 0) {
         if (st != TlsLink::State::Ready) return goIdle(linkErrorText(link.lastError()));
         if (reached(phaseDeadline)) {
-          slower();
+          if (resp.length()) sampleLatency((millis() - requestStartedAt) / 2);  // half an answer
+          // Nothing at all, twice in a row although reconnecting works: answers are slower
+          // than the margin rather than lost. Stretch it (×3 each time, up to the cap).
+          else if (inFlight == Req::Updates && ++silentPolls >= 2) sampleLatency(pollSlack());
           goIdle(F("Sin respuesta de Telegram"));
         }
         return;
@@ -1062,6 +1077,14 @@ void pump() {
       inFlight = Req::None;
       resp = String();
       phase = Phase::Ready;
+      {
+        // Latency sample: the whole wait, except the part a long poll spends on purpose.
+        uint32_t took = millis() - requestStartedAt;
+        uint32_t poll = telegram::POLL_SEC * 1000UL;
+        if (type == Req::Updates && took + 1000 >= poll) took = took > poll ? took - poll : 0;
+        sampleLatency(took);
+        silentPolls = 0;
+      }
       if (!handleResponse(type, status, body)) return;
       if (phase == Phase::Ready && (closeAfter || st != TlsLink::State::Ready)) {
         // Server closed after this response (keep-alive limit): reconnect without counting it.
@@ -1170,7 +1193,7 @@ void describe(JsonObject o) {
   o["records"] = smallRecords == 1 ? 2048 : smallRecords == 0 ? 16384 : 0;
   o["ip"] = ipText(currentIp);
   o["silentSec"] = downMs / 1000;
-  o["slow"] = slow;
+  o["latencyMs"] = latencyMs;
   o["safetyRestarts"] = safetyRestarts;
   o["ipSource"] = currentSrc;
 }

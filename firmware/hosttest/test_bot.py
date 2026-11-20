@@ -311,19 +311,6 @@ async def main():
     check("DNS caído: usa la dirección verificada", d is not None, "%.1f s" % (d or -1))
     await dev.cmd("dns 127.0.0.1")
 
-    # 5e. Very slow link (2G, congested cell): TLS answers after 25 s (base limit 20 s) and
-    # every response comes 12 s late (empty long polls overrun their limit). Timeouts stretch.
-    tg.tls_delay, tg.delay = 25, 12
-    tg.blackhole()
-    d = await command(tg, "/estado", "Apagado", 240)
-    st, _ = await dev.stats()
-    check("red muy lenta: los tiempos de espera se alargan y responde", d is not None and st["slow"] >= 1,
-          "%.0f s, nivel de lentitud %d" % (d or -1, st["slow"]))
-    tg.tls_delay, tg.delay = 0, 0
-    tg.blackhole()
-    d = await command(tg, "/estado", "Apagado", DEADLINE + 60)
-    check("red normal otra vez: responde", d is not None, "%.1f s" % (d or -1))
-
     # 6. Wi-Fi lost and back
     await dev.cmd("wifi 0")
     await asyncio.sleep(10)
@@ -378,6 +365,19 @@ async def main():
           "conexiones %d→%d, heap en uso %d→%d B" % (st0["connects"], st1["connects"], heap0, heap1))
     allocs = sum("TLS memory reserved" in l for l in open(os.path.join(BUILD, "device.log")))
     check("memoria TLS reservada una sola vez", allocs == 1, "%d veces" % allocs)
+
+    # 13b. Very slow link (2G, congested cell): the TLS handshake takes 15 s and every response
+    # comes 12 s late, so empty long polls overrun the base margin. Timeouts follow the latency.
+    tg.tls_delay, tg.delay = 15, 12
+    tg.blackhole()
+    d = await command(tg, "/estado", "Apagado", 240)
+    st, _ = await dev.stats()
+    check("red muy lenta: los tiempos de espera se alargan y responde", d is not None and st["latencyMs"] >= 10000,
+          "%.0f s, latencia medida %d ms" % (d or -1, st["latencyMs"]))
+    tg.tls_delay, tg.delay = 0, 0
+    tg.blackhole()
+    d = await command(tg, "/estado", "Apagado", DEADLINE + 60)
+    check("red normal otra vez: responde", d is not None, "%.1f s" % (d or -1))
 
     # 14. /reiniciar: acknowledged to Telegram before restarting, so it is not repeated
     d = await command(tg, "/reiniciar", "Reiniciando", 10)

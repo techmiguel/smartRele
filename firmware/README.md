@@ -215,7 +215,7 @@ On a phone hotspot the path to the Internet changes often: mobile data drops, th
 |---|---|---|
 | Connection dies silently (VPN switched on/off, network change) | TCP keep-alive probes after 25 s of silence (they also keep the mobile NAT entry open), and each long poll must be answered within 55 s (45 s poll + 10 s margin) | ≤ 1 min |
 | No Internet (connections refused or hanging) | Retries after 1, 2, 5, 10 and then every 20 s | ≤ 20 s after the Internet returns |
-| Slow or lossy link (2G/3G, congested cell) | Timeouts (DNS 8 s, connect + TLS 20 s, request 20 s, long-poll margin 10 s) grow ×2, ×3, ×4 after each timeout and shrink again after 20 good answers | keeps working; `slow` in `/api/status` |
+| Slow or lossy link (2G/3G, congested cell) | Timeouts follow the latency measured on answers that do arrive (handshakes, replies): a few times that latency, never below DNS 8 s, connect + TLS 20 s, request 20 s, long-poll margin 10 s, and at most 30–90 s. A timeout with partial progress (half a handshake or response) stretches them; one where nothing came back is treated as a dead path, so dead connections are still caught fast | keeps working; `latencyMs` in `/api/status` |
 | Wi-Fi lost | Reconnects at once when the Wi-Fi comes back | ~2 s |
 | Phone out of credit: the carrier's DNS answers with its top-up portal, and the wrong answer stays in the DNS cache after the top-up | Does not depend on DNS (see below) | ≤ 20 s after the top-up |
 | Telegram errors (502, 429), responses cut halfway | Drops the connection and retries | seconds |

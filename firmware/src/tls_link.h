@@ -69,6 +69,7 @@ class TlsLink {
   int lastError() const { return error_; }
   bool smallRecords() const { return mfln_; }  // the server accepted the smaller record size
   bool resumed() const { return resumed_; }    // last handshake reused the previous session
+  size_t received() const { return received_; }  // bytes received on this connection
 
  private:
   void fail(int err);
@@ -84,6 +85,7 @@ class TlsLink {
   bool haveSession_ = false;
   bool resumed_ = false;
   bool mfln_ = false;
+  size_t received_ = 0;
   State state_ = State::Closed;
   int error_ = 0;
 };
