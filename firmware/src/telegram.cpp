@@ -840,6 +840,11 @@ void markOk() {
 
 // Returns false if the connection must be dropped.
 bool handleResponse(Req type, int status, const String& body) {
+  // Any HTTP answer proves the path to Telegram works, even an error (wrong token, another
+  // program polling the bot, Telegram overloaded): restarting would not fix those, so the
+  // watchdog starts counting again.
+  downMs = 0;
+  wdStage = 0;
   if (status == 401 || status == 404) {
     haveMe = false;
     bot = String();

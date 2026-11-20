@@ -179,7 +179,8 @@ class FakeTelegram:
 
 class Device:
     async def start(self, port, binary=None, **extra):
-        env = dict(os.environ, TEST_PORT=str(port), TEST_TOKEN=TOKEN, **extra)
+        env = dict(os.environ, TEST_PORT=str(port), TEST_TOKEN=TOKEN)
+        env.update(extra)
         self.log = open(os.path.join(BUILD, "device.log"), "w")
         self.proc = await asyncio.create_subprocess_exec(
             os.path.join(BUILD, binary or os.environ.get("HARNESS", "harness")), env=env, stdin=asyncio.subprocess.PIPE,
@@ -420,8 +421,16 @@ async def watchdog_suite():
     check("vigilante: deja la marca en la memoria RTC", any(e.startswith("EVENT rtc restarts=1") for e in dev.events))
     await dev.stop()
 
-    # Boot after a safety restart: relay kept off, notice says why
+    # A wrong token gets HTTP 401 answers: Telegram is reachable, so no Wi-Fi rejoin, no restart
     await tg.start()
+    dev3 = Device()
+    await dev3.start(tg.port, "harness_wd", TEST_TOKEN="999:" + "B" * 35)
+    await asyncio.sleep(70)
+    check("token incorrecto: el vigilante no actúa (Telegram sí responde)",
+          "EVENT wifi-reconnect" not in dev3.events and "EVENT restart" not in dev3.events)
+    await dev3.stop()
+
+    # Boot after a safety restart: relay kept off, notice says why
     dev2 = Device()
     await dev2.start(tg.port, "harness_wd", TEST_RTC="1,61")
     t = await tg.wait_reply(lambda c, x: "reinicio de seguridad" in x and "1 h 1 min" in x, time.time() - 1, 15)
