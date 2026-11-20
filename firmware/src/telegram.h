@@ -9,6 +9,11 @@
 // web server, the timer and the schedules keep running while the bot waits for messages. Its
 // memory is reserved once at boot. A dead connection (network change, VPN, hotspot without
 // data) is detected within POLL_SEC + 8 s and retried every 1 to 20 s until it comes back.
+//
+// A watchdog covers whatever cause is left: when the Wi-Fi is up but Telegram has not answered
+// for 5 min, the bot starts over; at 10 min (and every 30 min after) the Wi-Fi is rejoined; at
+// 60 min (then 2, 4, 8, 16 h) the device restarts, but only if the relay is off and no timer,
+// routine or schedule is about to act, so the load is never switched by it.
 #pragma once
 
 #include <Arduino.h>
@@ -24,6 +29,9 @@ constexpr uint32_t MAX_AGE_SEC = 120;  // older commands (sent while offline) ar
 
 void begin();
 void loop();
+// True if the previous run restarted the device as the watchdog's last resort (only ever done
+// with the relay off): the relay must then stay off at boot. Call before relay::begin().
+bool wasSafetyRestart();
 void reconfigure();  // after the token changes
 void reconnect();    // drops the connection and tries again at once (web button)
 

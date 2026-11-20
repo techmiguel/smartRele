@@ -225,16 +225,26 @@ Messages that were being sent when the connection dropped are sent again after r
 
 The TLS memory (BearSSL contexts and a 16.7 kB buffer, about 23 kB, plus a 6.2 kB stack for the cryptography) is **reserved once at boot** and reused by every connection. Earlier builds allocated it on each reconnection, and after a few network changes the heap was too fragmented to find 16.7 kB in one piece again: the bot went silent until the relay was restarted. If the server accepts 2 kB TLS records (Max Fragment Length), the buffer is reduced to 2.4 kB after the first connection. The connection is driven without blocking: the web page, the timer and the schedules keep running during the handshake and while the bot waits for messages; only the DNS lookup and the TCP connect (3 s limit each) wait.
 
-`/diagnostico` (or `GET /api/status` → `telegram`) shows the time since boot, how long the current connection has lasted, the server address in use and where it came from, the number of connections and drops, the last drop reason and the free memory. *Ajustes → Telegram* only shows an error when Telegram has been unreachable for more than a minute.
+**Watchdog.** A last line of defence covers causes nobody foresaw. It only counts time with the Wi-Fi up and the clock set but no answer from Telegram, and escalates:
+
+| Silent for | Action |
+|---|---|
+| 5 min | The bot starts over: new connection, new TLS session, address search from the beginning |
+| 10 min, then every 30 min | The Wi-Fi network is rejoined: new DHCP lease, DNS server and gateway |
+| 60 min, then 2, 4, 8, 16 h | The device restarts, **only if the relay is off and no timer, routine or schedule (within 2 min) is pending**. After this restart the relay stays off whatever *Al volver la luz* says, and the "en línea" message explains why it restarted |
+
+The load is therefore never switched by the watchdog. While the relay is on, it keeps rejoining the Wi-Fi every 30 min instead. Any answer from Telegram resets the count. *Ajustes → Telegram → Reconectar Telegram* (`POST /api/telegram/reconnect`) does the first step by hand.
+
+`/diagnostico` (or `GET /api/status` → `telegram`) shows the time since boot, how long the current connection has lasted, the server address in use and where it came from, the number of connections and drops, the last drop reason and the free memory; `/api/status` also has `telegram.silentSec` (watchdog count) and `telegram.safetyRestarts`. *Ajustes → Telegram* only shows an error when Telegram has been unreachable for more than a minute.
 
 ### Host tests
 
-`hosttest/` runs the bot code (`telegram.cpp`, `tls_link.cpp`) on a PC, with BearSSL compiled from the sources shipped with the ESP8266 core, against a fake Bot API server over real TLS that injects the faults above: silent connection death, refused and hanging connections, a phone out of credit whose DNS points at a top-up portal, Telegram changing address, DNS down, Wi-Fi loss, 502 errors, responses cut halfway, `Connection: close`, chunked responses, oversized messages, plus hundreds of reconnections to check that memory stays flat.
+`hosttest/` runs the bot code (`telegram.cpp`, `tls_link.cpp`) on a PC, with BearSSL compiled from the sources shipped with the ESP8266 core, against a fake Bot API server over real TLS that injects the faults above: silent connection death, refused and hanging connections, a phone out of credit whose DNS points at a top-up portal, Telegram changing address, DNS down, Wi-Fi loss, 502 errors, responses cut halfway, `Connection: close`, chunked responses, oversized messages, plus hundreds of reconnections to check that memory stays flat. A second build (`harness_wd`) runs the watchdog 60 times faster to check each step, and that it never restarts with the relay on.
 
 ```bash
 pio run -e esp12f          # once, to fetch the core and ArduinoJson
 hosttest/build.sh
-python3 hosttest/test_bot.py
+python3 hosttest/test_bot.py            # about 12 minutes; --no-watchdog / --watchdog-only
 ```
 
 ## REST API

@@ -56,6 +56,7 @@ static bool relayOn = false;
 static const char* relaySrc = "boot";
 static uint32_t relayChanged = 0;
 static bool wifiUp = true;
+static uint32_t wifiBackAt = 0;  // Wi-Fi rejoin in progress until then
 
 namespace relay {
 bool isOn() { return relayOn; }
@@ -86,7 +87,12 @@ int32_t nextEvent(uint8_t&) { return -1; }
 }  // namespace scheduler
 
 namespace network {
-bool staConnected() { return wifiUp; }
+bool staConnected() { return wifiUp && (int32_t)(millis() - wifiBackAt) >= 0; }
+void reconnectWifi() {
+  printf("EVENT wifi-reconnect\n");
+  fflush(stdout);
+  wifiBackAt = millis() + 1500;
+}
 void requestRestart(uint32_t) {
   printf("EVENT restart\n");
   fflush(stdout);
@@ -104,6 +110,33 @@ bool save() {
   return true;
 }
 }  // namespace store
+
+// ---------------------------------------------------------------- RTC memory
+// TEST_RTC="restarts,minutes" starts as if the watchdog had restarted the device.
+static uint32_t rtcMem[4];
+bool telegramRtcRead(uint32_t* d, size_t w) {
+  static bool loaded = false;
+  if (!loaded && getenv("TEST_RTC")) {
+    unsigned r = 0, m = 0;
+    sscanf(getenv("TEST_RTC"), "%u,%u", &r, &m);
+    rtcMem[0] = 0x54475744;
+    rtcMem[1] = r;
+    rtcMem[2] = m;
+    rtcMem[3] = rtcMem[0] ^ r ^ m;
+  }
+  loaded = true;
+  memcpy(d, rtcMem, w * 4);
+  return true;
+}
+bool telegramRtcWrite(uint32_t* d, size_t w) {
+  memcpy(rtcMem, d, w * 4);
+  if (d[0]) {
+    printf("EVENT rtc restarts=%u downMin=%u\n", d[1], d[2]);
+    fflush(stdout);
+  }
+  return true;
+}
+bool telegramSoftRestart() { return true; }
 
 // ---------------------------------------------------------------- DNS, controlled by the test
 // "dns 127.0.0.2" sets the answer, "dns fail" makes lookups fail. TEST_REAL: the system resolver.
@@ -214,6 +247,7 @@ int main() {
   settings.tgNotify = true;
   fcntl(0, F_SETFL, O_NONBLOCK);
 
+  if (telegram::wasSafetyRestart()) printf("EVENT safety-boot\n");
   telegram::begin();
   char line[128];
   size_t used = 0;
@@ -226,6 +260,7 @@ int main() {
       *nl = 0;
       if (!strcmp(line, "quit")) return 0;
       if (!strncmp(line, "wifi ", 5)) wifiUp = line[5] == '1';
+      if (!strncmp(line, "relay ", 6)) relay::apply(line[6] == '1' ? RelayAction::On : RelayAction::Off, "manual");
       if (!strncmp(line, "dns ", 4)) dnsAnswer = strcmp(line + 4, "fail") ? inet_addr(line + 4) : 0;
       if (!strcmp(line, "stats")) {
         JsonDocument d;

@@ -34,11 +34,18 @@ if [ ! -f $OUT/portal.pem ]; then
     -keyout $OUT/portal.key -out $OUT/portal.pem 2>/dev/null
 fi
 
-g++ -std=gnu++17 -O1 -g -Wall -Wno-unused-function \
-  -DARDUINO=10800 -DARDUINOJSON_ENABLE_PROGMEM=0 -DARDUINOJSON_ENABLE_ARDUINO_STREAM=0 \
-  -DARDUINOJSON_ENABLE_ARDUINO_PRINT=0 -DFW_VERSION='"host-test"' -DTELEGRAM_POLL_SEC=4 \
-  -DTELEGRAM_TEST_ANCHORS='"../hosttest/build/test_ca.h"' \
-  -DTELEGRAM_TEST_BUILTIN_IP=0x0500007f \
-  -Imock -I$BEARSSL/inc -I$JSON \
-  harness.cpp ../src/telegram.cpp ../src/tls_link.cpp $OUT/libbearssl.a -o $OUT/harness
-echo "built $OUT/harness"
+build() {  # $1 output, then extra flags
+  out=$1
+  shift
+  g++ -std=gnu++17 -O1 -g -Wall -Wno-unused-function \
+    -DARDUINO=10800 -DARDUINOJSON_ENABLE_PROGMEM=0 -DARDUINOJSON_ENABLE_ARDUINO_STREAM=0 \
+    -DARDUINOJSON_ENABLE_ARDUINO_PRINT=0 -DFW_VERSION='"host-test"' -DTELEGRAM_POLL_SEC=4 \
+    -DTELEGRAM_TEST_ANCHORS='"../hosttest/build/test_ca.h"' \
+    -DTELEGRAM_TEST_BUILTIN_IP=0x0500007f "$@" \
+    -Imock -I$BEARSSL/inc -I$JSON \
+    harness.cpp ../src/telegram.cpp ../src/tls_link.cpp $OUT/libbearssl.a -o $OUT/$out
+  echo "built $OUT/$out"
+}
+build ${HARNESS:-harness}
+# Watchdog tests: its 5 min / 10 min / 60 min steps become 5 s / 10 s / 60 s
+build harness_wd -DTELEGRAM_WD_SCALE=60

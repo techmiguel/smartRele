@@ -60,6 +60,7 @@ class TlsLink {
   size_t write(const uint8_t* data, size_t len);
   size_t read(uint8_t* out, size_t len);  // application data received so far
   void close();                           // drops the connection immediately
+  void forgetSession() { haveSession_ = false; }  // next handshake starts from scratch
 
   State state() const { return state_; }
   int lastError() const { return error_; }

@@ -27,7 +27,7 @@ void setup() {
   if (!store::begin()) Serial.println(F("[fs] ERROR: no file system"));
   store::load();
 
-  relay::begin();
+  relay::begin(telegram::wasSafetyRestart());
   network::begin();
   scheduler::begin();
   web::begin();

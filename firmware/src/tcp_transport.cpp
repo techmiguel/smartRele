@@ -1,4 +1,5 @@
-// Network glue of the Telegram bot on the ESP8266: TCP through lwIP (WiFiClient) and DNS.
+// Platform glue of the Telegram bot on the ESP8266: TCP through lwIP (WiFiClient), DNS and
+// RTC memory.
 #ifdef ARDUINO_ARCH_ESP8266
 
 #include <ESP8266WiFi.h>
@@ -55,6 +56,19 @@ bool telegramResolve(const char* host, uint32_t& ip) {
   if (WiFi.hostByName(host, a, DNS_TIMEOUT_MS) != 1 || !a.isSet() || !a.isV4()) return false;
   ip = a.v4();
   return true;
+}
+
+// RTC user memory survives a software restart. Blocks 0-31 are left to the OTA boot loader.
+constexpr uint32_t RTC_BLOCK = 96;
+bool telegramRtcRead(uint32_t* data, size_t words) {
+  return ESP.rtcUserMemoryRead(RTC_BLOCK, data, words * 4);
+}
+bool telegramRtcWrite(uint32_t* data, size_t words) {
+  return ESP.rtcUserMemoryWrite(RTC_BLOCK, data, words * 4);
+}
+bool telegramSoftRestart() {
+  const rst_info* r = ESP.getResetInfoPtr();
+  return r && r->reason == REASON_SOFT_RESTART;
 }
 
 #endif

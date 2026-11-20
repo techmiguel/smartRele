@@ -21,6 +21,10 @@
 
 TcpTransport& telegramTransport();  // tcp_transport.cpp (or the host test harness)
 bool telegramResolve(const char* host, uint32_t& ip);  // DNS lookup, idem
+// Memory that survives a software restart (RTC on the ESP8266); `words` 32-bit words.
+bool telegramRtcRead(uint32_t* data, size_t words);
+bool telegramRtcWrite(uint32_t* data, size_t words);
+bool telegramSoftRestart();  // the last reset was a software restart
 
 namespace {
 constexpr const char* HOST = "api.telegram.org";
@@ -742,7 +746,92 @@ void handleOversize() {
   Serial.println(F("[tg] oversized update skipped"));
 }
 
+
+// ---------------------------------------------------------------- watchdog
+// Last line of defence for causes nobody foresaw. It only counts time with Wi-Fi and a valid
+// clock but no answer from Telegram, and escalates step by step.
+#ifndef TELEGRAM_WD_SCALE  // host tests run it faster
+#define TELEGRAM_WD_SCALE 1
+#endif
+constexpr uint32_t WD_RESET_MS = 5UL * 60000 / TELEGRAM_WD_SCALE;         // bot starts over
+constexpr uint32_t WD_WIFI_MS = 10UL * 60000 / TELEGRAM_WD_SCALE;         // Wi-Fi rejoined
+constexpr uint32_t WD_WIFI_REPEAT_MS = 30UL * 60000 / TELEGRAM_WD_SCALE;  // ... and again
+constexpr uint32_t WD_RESTART_MS = 60UL * 60000 / TELEGRAM_WD_SCALE;      // device restart
+constexpr uint32_t RTC_MAGIC = 0x54475744;  // "TGWD"
+
+struct RtcRecord {
+  uint32_t magic, restarts, downMin, check;
+};
+
+uint32_t downMs = 0;      // Wi-Fi up, Telegram silent, since the last answer
+uint32_t wdTick = 0;
+uint8_t wdStage = 0;
+uint32_t wdWifiAt = 0;    // downMs at the last Wi-Fi rejoin
+uint32_t safetyRestarts = 0;
+uint32_t safetyDownMin = 0;
+bool safetyBoot = false;
+bool rtcChecked = false;
+
+void checkRtc() {
+  if (rtcChecked) return;
+  rtcChecked = true;
+  RtcRecord r{};
+  if (telegramRtcRead(reinterpret_cast<uint32_t*>(&r), 4) && r.magic == RTC_MAGIC &&
+      r.check == (r.magic ^ r.restarts ^ r.downMin) && telegramSoftRestart()) {
+    safetyBoot = true;
+    safetyRestarts = r.restarts;
+    safetyDownMin = r.downMin;
+  }
+  RtcRecord clear{};
+  telegramRtcWrite(reinterpret_cast<uint32_t*>(&clear), 4);
+}
+
+// Restarting must never switch the load: relay off, nothing about to switch it.
+bool safeToRestart() {
+  if (relay::isOn() || relay::timerActive() || relay::cycleActive()) return false;
+  uint8_t idx;
+  int32_t next = scheduler::nextEvent(idx);
+  return next < 0 || next > 2;
+}
+
+void watchdog() {
+  uint32_t now = millis();
+  uint32_t dt = now - wdTick;
+  wdTick = now;
+  if (downMs < 0xF0000000UL) downMs += dt;
+
+  if (wdStage < 1 && downMs >= WD_RESET_MS) {
+    wdStage = 1;
+    lastFailure = F("Vigilante: conexión del bot reiniciada");
+    Serial.println(F("[tg] watchdog: restarting the bot connection"));
+    link.forgetSession();
+    telegram::reconnect();
+  }
+  if (downMs >= WD_WIFI_MS && (wdStage < 2 || downMs - wdWifiAt >= WD_WIFI_REPEAT_MS)) {
+    wdStage = 2;
+    wdWifiAt = downMs;
+    lastFailure = F("Vigilante: Wi-Fi reconectado");
+    Serial.println(F("[tg] watchdog: rejoining the Wi-Fi network"));
+    network::reconnectWifi();
+  }
+  uint8_t shift = safetyRestarts < 4 ? safetyRestarts : 4;  // 1, 2, 4, 8, 16 h
+  if (downMs >= (WD_RESTART_MS << shift) && safeToRestart()) {
+    RtcRecord r{RTC_MAGIC, safetyRestarts + 1, downMs / 60000, 0};
+    r.check = r.magic ^ r.restarts ^ r.downMin;
+    telegramRtcWrite(reinterpret_cast<uint32_t*>(&r), 4);
+    Serial.printf("[tg] watchdog: no answer for %lu min, restarting (relay off)\n",
+                  (unsigned long)(downMs / 60000));
+    link.close();
+    phase = Phase::Idle;
+    restarting = true;
+    network::requestRestart(500);
+  }
+}
+
 void markOk() {
+  downMs = 0;
+  wdStage = 0;
+  safetyRestarts = 0;
   lastOkAt = millis();
   everOk = true;
   backoffStep = 0;
@@ -828,7 +917,12 @@ void nextRequest() {
       t += settings.deviceName;
       t += F(" está en línea (");
       String reason = ESP.getResetReason();
-      t += reason == F("Power On") || reason == F("External System") ? String(F("volvió la luz")) : reason;
+      if (safetyBoot) {
+        t += F("reinicio de seguridad: Telegram no respondió durante ");
+        t += fmtDur(safetyDownMin * 60);
+      } else {
+        t += reason == F("Power On") || reason == F("External System") ? String(F("volvió la luz")) : reason;
+      }
       t += F("). ");
       t += stateLine();
       t += '.';
@@ -917,7 +1011,14 @@ void pump() {
 
 namespace telegram {
 
+bool wasSafetyRestart() {
+  checkRtc();
+  return safetyBoot;
+}
+
 void begin() {
+  checkRtc();
+  wdTick = millis();
   lastOn = relay::isOn();
   // Reserve the TLS memory right after boot, while the heap is still in one piece.
   if (settings.tgToken[0]) allocateTls();
@@ -961,6 +1062,7 @@ void loop() {
       inFlight = Req::None;
     }
     wasOnNetwork = false;
+    wdTick = millis();  // time without Wi-Fi is not the bot's failure
     return;
   }
   if (!wasOnNetwork) {
@@ -969,6 +1071,8 @@ void loop() {
     backoffStep = 0;
     retryAt = millis();
   }
+  watchdog();
+  if (restarting) return;
   if (!iobuf && !allocateTls()) return;
   // Several steps per call when there is progress (e.g. response read, next request sent).
   for (int i = 0; i < 4; i++) {
@@ -999,6 +1103,8 @@ void describe(JsonObject o) {
   o["lastOk"] = everOk ? static_cast<int32_t>((millis() - lastOkAt) / 1000) : -1;
   o["records"] = smallRecords == 1 ? 2048 : smallRecords == 0 ? 16384 : 0;
   o["ip"] = ipText(currentIp);
+  o["silentSec"] = downMs / 1000;
+  o["safetyRestarts"] = safetyRestarts;
   o["ipSource"] = currentSrc;
 }
 

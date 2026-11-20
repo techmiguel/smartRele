@@ -178,11 +178,11 @@ class FakeTelegram:
 
 
 class Device:
-    async def start(self, port):
-        env = dict(os.environ, TEST_PORT=str(port), TEST_TOKEN=TOKEN)
+    async def start(self, port, binary=None, **extra):
+        env = dict(os.environ, TEST_PORT=str(port), TEST_TOKEN=TOKEN, **extra)
         self.log = open(os.path.join(BUILD, "device.log"), "w")
         self.proc = await asyncio.create_subprocess_exec(
-            os.path.join(BUILD, os.environ.get("HARNESS", "harness")), env=env, stdin=asyncio.subprocess.PIPE,
+            os.path.join(BUILD, binary or os.environ.get("HARNESS", "harness")), env=env, stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=self.log)
         self.events = []
         asyncio.get_running_loop().create_task(self.read())
@@ -378,5 +378,74 @@ async def main():
     return 1 if failed else 0
 
 
+async def watchdog_suite():
+    """Watchdog, with harness_wd: 5 s bot reset, 10 s Wi-Fi rejoin (then every 30 s), 60 s restart."""
+    tg = FakeTelegram()
+    await tg.start()
+    dev = Device()
+    await dev.start(tg.port, "harness_wd")
+    t = await tg.wait_reply(lambda c, x: "está en línea" in x, 0, 15)
+    check("vigilante: arranque normal", t is not None)
+    await dev.cmd("relay 1")
+    await asyncio.sleep(0.5)
+
+    # No Internet for 75 s with the relay ON: bot reset, Wi-Fi rejoins, never a restart
+    tg.blackhole()
+    await tg.stop_listening()
+    await asyncio.sleep(75)
+    log = open(os.path.join(BUILD, "device.log")).read()
+    rejoins = dev.events.count("EVENT wifi-reconnect")
+    check("vigilante: reinicia la conexión del bot", "watchdog: restarting the bot connection" in log)
+    check("vigilante: reconecta el Wi-Fi (10 s, luego cada 30 s)", 2 <= rejoins <= 3, "%d veces" % rejoins)
+    check("vigilante: con el relé encendido nunca reinicia", "EVENT restart" not in dev.events)
+
+    # Internet back: answers again and the watchdog counter starts over
+    await tg.start()
+    d = await command(tg, "/estado", "Encendido", 30)
+    st, _ = await dev.stats()
+    check("vigilante: vuelve a responder y pone el contador a cero", d is not None and st["silentSec"] < 5,
+          "%.1f s, silentSec=%s" % (d or -1, st["silentSec"]))
+
+    # No Internet again, relay OFF: restart after 60 s of silence, not before
+    await dev.cmd("relay 0")
+    await asyncio.sleep(0.5)
+    tg.blackhole()
+    await tg.stop_listening()
+    t0 = time.time()
+    while "EVENT restart" not in dev.events and time.time() - t0 < 120:
+        await asyncio.sleep(0.2)
+    took = time.time() - t0
+    check("vigilante: con el relé apagado reinicia a los 60 s", "EVENT restart" in dev.events and 55 <= took <= 80,
+          "%.0f s" % took)
+    check("vigilante: deja la marca en la memoria RTC", any(e.startswith("EVENT rtc restarts=1") for e in dev.events))
+    await dev.stop()
+
+    # Boot after a safety restart: relay kept off, notice says why
+    await tg.start()
+    dev2 = Device()
+    await dev2.start(tg.port, "harness_wd", TEST_RTC="1,61")
+    t = await tg.wait_reply(lambda c, x: "reinicio de seguridad" in x and "1 h 1 min" in x, time.time() - 1, 15)
+    check("tras el reinicio de seguridad: lo detecta y lo explica en el aviso",
+          t is not None and "EVENT safety-boot" in dev2.events)
+    await dev2.stop()
+    for w in tg.zombies:
+        w.transport.abort()
+
+
+async def run_all():
+    code = 0
+    if "--watchdog-only" not in sys.argv:
+        code = await main()
+    if "--no-watchdog" not in sys.argv:
+        await watchdog_suite()
+        failed = [r for r in results if not r[1]]
+        print("\n%d/%d pruebas superadas en total" % (len(results) - len(failed), len(results)))
+        code = 1 if failed else 0
+    for t in asyncio.all_tasks():
+        if t is not asyncio.current_task():
+            t.cancel()
+    return code
+
+
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    sys.exit(asyncio.run(run_all()))
