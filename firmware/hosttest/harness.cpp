@@ -141,20 +141,30 @@ bool telegramSoftRestart() { return true; }
 // ---------------------------------------------------------------- DNS, controlled by the test
 // "dns 127.0.0.2" sets the answer, "dns fail" makes lookups fail. TEST_REAL: the system resolver.
 static uint32_t dnsAnswer = htonl(INADDR_LOOPBACK);
-bool telegramResolve(const char* host, uint32_t& ip) {
+static int8_t dnsState = -1;
+static uint32_t dnsResult = 0;
+bool telegramResolveStart(const char* host) {
+  dnsState = -1;
   if (getenv("TEST_REAL")) {
     addrinfo hints{}, *res = nullptr;
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     if (getaddrinfo(host, nullptr, &hints, &res) || !res) return false;
-    ip = ((sockaddr_in*)res->ai_addr)->sin_addr.s_addr;
+    dnsResult = ((sockaddr_in*)res->ai_addr)->sin_addr.s_addr;
     freeaddrinfo(res);
+    dnsState = 1;
     return true;
   }
   if (!wifiUp || !dnsAnswer) return false;
-  ip = dnsAnswer;
+  dnsResult = dnsAnswer;
+  dnsState = 1;
   return true;
 }
+int8_t telegramResolvePoll(uint32_t& ip) {
+  if (dnsState == 1) ip = dnsResult;
+  return dnsState;
+}
+void telegramResolveCancel() { dnsState = -1; }
 
 // ---------------------------------------------------------------- TCP over POSIX sockets
 class HostTcp : public TcpTransport {
@@ -162,7 +172,7 @@ class HostTcp : public TcpTransport {
   // Loopback addresses stand for Internet hosts: 127.0.0.1 is "Telegram", other 127.x
   // addresses are what the test makes of them (a top-up portal, a new Telegram address...).
   // All use TEST_PORT; with TEST_REAL, the real address and port.
-  bool connect(uint32_t ip, uint16_t port) override {
+  bool begin(uint32_t ip, uint16_t port) override {
     stop();
     if (!wifiUp) return false;
     fd_ = socket(AF_INET, SOCK_STREAM, 0);
@@ -175,18 +185,27 @@ class HostTcp : public TcpTransport {
     fcntl(fd_, F_SETFL, O_NONBLOCK);
     int r = ::connect(fd_, (sockaddr*)&a, sizeof(a));
     if (r < 0 && errno != EINPROGRESS) return fail();
+    status_ = r == 0 ? 1 : 0;
+    return true;
+  }
+  int8_t connectStatus() override {  // non-blocking, like the ESP8266 transport
+    if (fd_ < 0) return -1;
+    if (status_) return status_;
     pollfd p{fd_, POLLOUT, 0};
-    if (poll(&p, 1, 3000) != 1) return fail();  // same 3 s limit as the ESP8266 transport
+    if (poll(&p, 1, 0) != 1) return 0;
     int err = 0;
     socklen_t len = sizeof(err);
     getsockopt(fd_, SOL_SOCKET, SO_ERROR, &err, &len);
-    if (err) return fail();
+    if (err) {
+      stop();
+      return status_ = -1;
+    }
     int one = 1;
     setsockopt(fd_, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-    return true;
+    return status_ = 1;
   }
   bool connected() override {
-    if (fd_ < 0) return false;
+    if (fd_ < 0 || status_ != 1) return false;
     if (eof_) return false;
     pending();
     return !eof_;
@@ -209,6 +228,7 @@ class HostTcp : public TcpTransport {
     if (fd_ >= 0) close(fd_);
     fd_ = -1;
     eof_ = false;
+    status_ = 0;
   }
 
  private:
@@ -233,6 +253,7 @@ class HostTcp : public TcpTransport {
   }
   int fd_ = -1;
   bool eof_ = false;
+  int8_t status_ = 0;
 };
 
 static HostTcp hostTcp;
@@ -251,8 +272,11 @@ int main() {
   telegram::begin();
   char line[128];
   size_t used = 0;
+  uint32_t maxLoop = 0;
   for (;;) {
+    uint32_t t = millis();
     telegram::loop();
+    if (millis() - t > maxLoop) maxLoop = millis() - t;
     ssize_t n = read(0, line + used, sizeof(line) - 1 - used);
     if (n > 0) used += n;
     char* nl;
@@ -267,7 +291,7 @@ int main() {
         telegram::describe(d.to<JsonObject>());
         std::string s;
         serializeJson(d, s);
-        printf("EVENT stats %s heap=%u\n", s.c_str(), ESP.getFreeHeap());
+        printf("EVENT stats %s heap=%u maxloop=%u\n", s.c_str(), ESP.getFreeHeap(), maxLoop);
         fflush(stdout);
       }
       size_t rest = used - (nl + 1 - line);

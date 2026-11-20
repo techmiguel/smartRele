@@ -5,8 +5,8 @@
 // fragmented to find 16.7 kB in one piece again, and the bot goes silent until a restart. It
 // also runs the handshake and every write in blocking loops of up to 15 s. Here the contexts and
 // the buffer are allocated once by the caller and reused for every connection, and poll() only
-// moves the bytes that are ready, so the main loop never waits on the network (apart from the
-// TCP connect inside open(), which is short and bounded).
+// moves the bytes that are ready, so the main loop never waits on the network, not even for the
+// TCP connection.
 //
 // The engine runs in half-duplex ("mono") mode: one buffer for both directions, which fits
 // HTTP request/response traffic and saves the second buffer.
@@ -21,12 +21,14 @@
 
 #include <bearssl/bearssl.h>
 
-// Plain TCP stream under the TLS link. Everything but connect() must return immediately.
+// Plain TCP stream under the TLS link. Every call returns immediately.
 class TcpTransport {
  public:
   virtual ~TcpTransport() = default;
-  // IPv4 address in network byte order (as in lwIP and sockaddr_in). Bounded by a short timeout.
-  virtual bool connect(uint32_t ip, uint16_t port) = 0;
+  // Starts connecting to an IPv4 address in network byte order (as in lwIP and sockaddr_in).
+  // False if it cannot even start.
+  virtual bool begin(uint32_t ip, uint16_t port) = 0;
+  virtual int8_t connectStatus() = 0;  // 0 still connecting, 1 connected, -1 failed
   virtual bool connected() = 0;
   virtual size_t available() = 0;
   virtual size_t read(uint8_t* buf, size_t len) = 0;
@@ -37,7 +39,7 @@ class TcpTransport {
 
 class TlsLink {
  public:
-  enum class State : uint8_t { Closed, Handshake, Ready, Failed };
+  enum class State : uint8_t { Closed, Connecting, Handshake, Ready, Failed };
 
   // Error codes besides BearSSL's (BR_ERR_*, all positive).
   static constexpr int ERR_TCP_CONNECT = -1;  // TCP connection failed
@@ -47,7 +49,8 @@ class TlsLink {
   void init(br_ssl_client_context* sc, br_x509_minimal_context* xc,
             const br_x509_trust_anchor* anchors, size_t anchorCount);
 
-  // Starts a connection to `ip`: TCP connect, then a non-blocking handshake driven by poll().
+  // Starts a connection to `ip`: TCP connect, then the handshake, both driven by poll(). The
+  // caller decides how long to wait (state() stays Connecting or Handshake meanwhile).
   // The certificate is checked against `host`, whatever address it came from. `buf` is the
   // engine buffer: BR_SSL_BUFSIZE_MONO bytes for full-size records; a smaller buffer makes
   // BearSSL ask for smaller records (Max Fragment Length extension).
@@ -69,6 +72,11 @@ class TlsLink {
 
  private:
   void fail(int err);
+  void startHandshake();
+  const char* host_ = nullptr;
+  unsigned char* buf_ = nullptr;
+  size_t bufLen_ = 0;
+  time_t now_ = 0;
   br_ssl_client_context* sc_ = nullptr;
   br_x509_minimal_context* xc_ = nullptr;
   TcpTransport* tcp_ = nullptr;

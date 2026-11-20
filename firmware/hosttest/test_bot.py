@@ -21,7 +21,7 @@ BUILD = os.path.join(HERE, "build")
 TOKEN = "123456789:" + "A" * 35
 USER = 111
 POLL = 4  # TELEGRAM_POLL_SEC in build.sh
-DEADLINE = POLL + 8  # long-poll response timeout in telegram.cpp
+DEADLINE = POLL + 10  # long-poll response timeout in telegram.cpp
 
 
 class FakeTelegram:
@@ -36,6 +36,8 @@ class FakeTelegram:
         self.chunked = False
         self.fail_next = 0         # answer the next N requests with 502
         self.stall_next = 0        # send half of the next N responses, then go silent
+        self.delay = 0             # extra seconds before every response (slow, lossy link)
+        self.tls_delay = 0         # seconds before answering the TLS handshake
         self.connections = 0
         self.methods = {}
         self.servers = {}
@@ -51,8 +53,7 @@ class FakeTelegram:
 
     async def stop_listening(self, host="127.0.0.1"):  # new connections are refused (RST)
         srv = self.servers.pop(host)
-        srv.close()
-        await srv.wait_closed()
+        srv.close()  # no wait_closed(): since Python 3.12 it waits for the zombie connections too
 
     async def start_portal(self, host="127.0.0.2"):
         """A carrier's top-up portal: answers HTTPS with its own certificate."""
@@ -83,6 +84,8 @@ class FakeTelegram:
         if self.accept == "hang":
             return await self.silent(writer)
         try:
+            if self.tls_delay:
+                await asyncio.sleep(self.tls_delay)
             await writer.start_tls(self.ctx)
         except Exception:
             writer.close()
@@ -100,6 +103,8 @@ class FakeTelegram:
                 self.methods[method] = self.methods.get(method, 0) + 1
                 token = lines[0].split()[1].split("/")[1][3:]
                 status, result = await self.api(method, body, token, epoch)
+                if self.delay:
+                    await asyncio.sleep(self.delay)
                 if self.epoch != epoch:
                     return await self.silent(writer)
                 await self.respond(writer, status, result)
@@ -202,7 +207,9 @@ class Device:
         for _ in range(100):
             for e in self.events[n:]:
                 if e.startswith("EVENT stats "):
-                    js, heap = e[12:].rsplit(" heap=", 1)
+                    js, rest = e[12:].rsplit(" heap=", 1)
+                    heap, maxloop = rest.split(" maxloop=")
+                    self.maxloop = int(maxloop)
                     return json.loads(js), int(heap)
             await asyncio.sleep(0.02)
 
@@ -244,8 +251,8 @@ async def main():
           "%.2f s" % (d or -1))
     d = await command(tg, "/start", "Tu ID de Telegram es 999", 5, user=999)
     check("usuario no autorizado recibe solo su ID", d is not None)
-    d = await command(tg, "/apagar", "ignorada", 5, age=300)
-    check("orden atrasada 5 min: no se ejecuta y se avisa",
+    d = await command(tg, "/apagar", "ignorada", 5, age=600)
+    check("orden atrasada 10 min: no se ejecuta y se avisa",
           d is not None and "EVENT relay off telegram" not in dev.events)
 
     # 3. VPN switched on and off on the hotspot phone: the open connection dies silently
@@ -303,6 +310,19 @@ async def main():
     d = await command(tg, "/estado", "Apagado", DEADLINE + 25)
     check("DNS caído: usa la dirección verificada", d is not None, "%.1f s" % (d or -1))
     await dev.cmd("dns 127.0.0.1")
+
+    # 5e. Very slow link (2G, congested cell): TLS answers after 25 s (base limit 20 s) and
+    # every response comes 12 s late (empty long polls overrun their limit). Timeouts stretch.
+    tg.tls_delay, tg.delay = 25, 12
+    tg.blackhole()
+    d = await command(tg, "/estado", "Apagado", 240)
+    st, _ = await dev.stats()
+    check("red muy lenta: los tiempos de espera se alargan y responde", d is not None and st["slow"] >= 1,
+          "%.0f s, nivel de lentitud %d" % (d or -1, st["slow"]))
+    tg.tls_delay, tg.delay = 0, 0
+    tg.blackhole()
+    d = await command(tg, "/estado", "Apagado", DEADLINE + 60)
+    check("red normal otra vez: responde", d is not None, "%.1f s" % (d or -1))
 
     # 6. Wi-Fi lost and back
     await dev.cmd("wifi 0")
@@ -367,6 +387,8 @@ async def main():
           "%d reinicios" % restarts)
 
     st, heap = await dev.stats()
+    check("el bucle principal nunca se bloquea (máx. por vuelta < 300 ms)", dev.maxloop < 300,
+          "%d ms" % dev.maxloop)
     print("\nestadísticas finales:", st)
     await dev.stop()
     failed = [r for r in results if not r[1]]

@@ -20,7 +20,10 @@
 #endif
 
 TcpTransport& telegramTransport();  // tcp_transport.cpp (or the host test harness)
-bool telegramResolve(const char* host, uint32_t& ip);  // DNS lookup, idem
+// Asynchronous DNS, idem: start, then poll (0 pending, 1 found, -1 failed), or cancel.
+bool telegramResolveStart(const char* host);
+int8_t telegramResolvePoll(uint32_t& ip);
+void telegramResolveCancel();
 // Memory that survives a software restart (RTC on the ESP8266); `words` 32-bit words.
 bool telegramRtcRead(uint32_t* data, size_t words);
 bool telegramRtcWrite(uint32_t* data, size_t words);
@@ -31,9 +34,13 @@ constexpr const char* HOST = "api.telegram.org";
 constexpr size_t MAX_RESPONSE = 4096;  // larger updates are skipped (see handleOversize)
 constexpr size_t MAX_TEXT = 1500;      // longer outgoing texts are cut
 constexpr uint8_t QUEUE_SIZE = 6;
-constexpr uint32_t HANDSHAKE_TIMEOUT_MS = 12000;
-constexpr uint32_t REQUEST_TIMEOUT_MS = 15000;
-constexpr uint32_t LONG_POLL_SLACK_MS = 8000;  // on top of POLL_SEC before giving up
+// Base timeouts. On a slow or lossy link (2G/3G, a congested cell) they grow after each
+// timeout, up to 4 times, and shrink again after a run of good answers (see slower()).
+// Nothing blocks while waiting, so long timeouts cost nothing to the rest of the firmware.
+constexpr uint32_t DNS_TIMEOUT_MS = 8000;
+constexpr uint32_t CONNECT_TIMEOUT_MS = 20000;  // TCP connect + TLS handshake
+constexpr uint32_t REQUEST_TIMEOUT_MS = 20000;
+constexpr uint32_t LONG_POLL_SLACK_MS = 10000;  // on top of POLL_SEC before giving up
 constexpr uint32_t ONLINE_GRACE_MS = 60000;     // reconnections shorter than this are not errors
 // Waits between connection attempts; the last one repeats. Short on purpose: after a network
 // change (VPN, mobile data off and on) the bot must come back within half a minute.
@@ -55,7 +62,7 @@ size_t usedLen = 0;        // part of the buffer given to the current connection
 
 TlsLink link;
 
-enum class Phase : uint8_t { Idle, Handshake, Ready, Sending, Waiting };
+enum class Phase : uint8_t { Idle, Resolving, Handshake, Ready, Sending, Waiting };
 Phase phase = Phase::Idle;
 enum class Req : uint8_t { None, GetMe, SetCommands, Updates, Send };
 Req inFlight = Req::None;
@@ -275,44 +282,75 @@ String ipText(uint32_t ip) {
   return String(b);
 }
 
-bool pickAddress(uint32_t& ip, const char*& src) {
+// How slow the network has proven lately (0-3): timeouts are multiplied by 1 + slow.
+uint8_t slow = 0;
+uint8_t okStreak = 0;
+uint32_t scaled(uint32_t ms) { return ms * (1 + slow); }
+void slower() {
+  if (slow < 3) slow++;
+  okStreak = 0;
+}
+
+enum class Pick : uint8_t { Address, Dns };
+
+Pick pickAddress(uint32_t& ip, const char*& src) {
   const uint32_t verified = settings.tgIp;
-  for (uint8_t tries = 0; tries < 2 * (KNOWN_COUNT + 1); tries++) {
+  for (;;) {
     uint8_t a = attempt++;
     if (verified && a % 2 == 0) {
       ip = verified;
       src = "verificada";
-      return true;
+      return Pick::Address;
     }
     uint8_t alt = (verified ? a / 2 : a) % (KNOWN_COUNT + 1);
-    if (alt == 0) {
-      if (telegramResolve(HOST, ip) && ip != verified) {
-        src = "DNS";
-        return true;
-      }
-    } else if (KNOWN_IPS[alt - 1] != verified) {
+    if (alt == 0) return Pick::Dns;
+    if (KNOWN_IPS[alt - 1] != verified) {
       ip = KNOWN_IPS[alt - 1];
       src = "conocida";
-      return true;
+      return Pick::Address;
     }
   }
-  return false;
 }
 
-void startConnect() {
-  if (!pickAddress(currentIp, currentSrc)) return goIdle(F("Sin dirección para api.telegram.org"));
+uint32_t connectStartedAt = 0;
+
+void openLink() {
   // Small records first; the full-size buffer only if the server does not accept them.
   size_t len = smallRecords == 0 ? iobufSize : SMALL_BUF;
   if (len > iobufSize) len = iobufSize;
   usedLen = len;
   connects++;
-  uint32_t t = millis();
+  connectStartedAt = millis();
   if (!link.open(telegramTransport(), HOST, currentIp, 443, iobuf, len, time(nullptr)))
     return goIdle(linkErrorText(link.lastError()) + F(" · ") + ipText(currentIp) + F(" (") + currentSrc + ')');
-  Serial.printf("[tg] TCP connected to %s (%s) in %lu ms\n", ipText(currentIp).c_str(), currentSrc,
-                (unsigned long)(millis() - t));
   phase = Phase::Handshake;
-  phaseDeadline = millis() + HANDSHAKE_TIMEOUT_MS;
+  phaseDeadline = millis() + scaled(CONNECT_TIMEOUT_MS);
+}
+
+void startConnect() {
+  if (pickAddress(currentIp, currentSrc) == Pick::Address) return openLink();
+  // DNS turn: ask without waiting; Phase::Resolving picks up the answer.
+  if (telegramResolveStart(HOST)) {
+    phase = Phase::Resolving;
+    phaseDeadline = millis() + scaled(DNS_TIMEOUT_MS);
+  } else {
+    retryAt = millis();  // no DNS right now: next address at once
+  }
+}
+
+// DNS answer (or none): connect if it is a new address, else go on with the next one at once.
+void pollResolver() {
+  uint32_t ip = 0;
+  int8_t r = telegramResolvePoll(ip);
+  if (r == 0 && !reached(phaseDeadline)) return;
+  if (r == 0) telegramResolveCancel();
+  phase = Phase::Idle;
+  if (r == 1 && ip && ip != settings.tgIp) {
+    currentIp = ip;
+    currentSrc = "DNS";
+    return openLink();
+  }
+  retryAt = millis();
 }
 
 void reconnectNow() {
@@ -330,8 +368,9 @@ void onHandshakeDone() {
     Serial.printf("[tg] verified address %s saved\n", ipText(currentIp).c_str());
   }
   bool small = link.smallRecords();
-  Serial.printf("[tg] TLS ready (%s records%s), heap %u\n", small ? "2 kB" : "16 kB",
-                link.resumed() ? ", resumed" : "", ESP.getFreeHeap());
+  Serial.printf("[tg] TLS ready with %s (%s) in %lu ms (%s records%s), heap %u\n",
+                ipText(currentIp).c_str(), currentSrc, (unsigned long)(millis() - connectStartedAt),
+                small ? "2 kB" : "16 kB", link.resumed() ? ", resumed" : "", ESP.getFreeHeap());
   if (smallRecords < 0) {
     // First connection since boot: learn whether the server accepts 2 kB records.
     smallRecords = small ? 1 : 0;
@@ -390,8 +429,9 @@ void beginRequest(Req type, const char* method, const String& body) {
   resp = String();
   respOverflow = false;
   phase = Phase::Sending;
-  uint32_t timeout = REQUEST_TIMEOUT_MS;
-  if (type == Req::Updates && !restartAfterAck) timeout = telegram::POLL_SEC * 1000UL + LONG_POLL_SLACK_MS;
+  uint32_t timeout = scaled(REQUEST_TIMEOUT_MS);
+  if (type == Req::Updates && !restartAfterAck)
+    timeout = telegram::POLL_SEC * 1000UL + scaled(LONG_POLL_SLACK_MS);
   phaseDeadline = millis() + timeout;
 }
 
@@ -829,6 +869,10 @@ void watchdog() {
 }
 
 void markOk() {
+  if (++okStreak >= 20) {  // a run of good answers: the network got better
+    okStreak = 0;
+    if (slow) slow--;
+  }
   downMs = 0;
   wdStage = 0;
   safetyRestarts = 0;
@@ -862,6 +906,11 @@ bool handleResponse(Req type, int status, const String& body) {
   }
   if (status == 429 || status >= 500 || status == 0) {
     goIdle(String(F("Telegram respondió ")) + status);
+    if (status == 429) {  // flood control: wait as long as Telegram asks (at most 5 min)
+      JsonDocument doc;
+      uint32_t wait = deserializeJson(doc, body) ? 30 : doc["parameters"]["retry_after"] | 30UL;
+      retryAt = millis() + (wait < 300 ? wait : 300) * 1000UL;
+    }
     return false;
   }
   markOk();
@@ -944,6 +993,10 @@ void pump() {
       if (reached(retryAt)) startConnect();
       return;
 
+    case Phase::Resolving:
+      pollResolver();
+      return;
+
     case Phase::Handshake: {
       TlsLink::State st = link.poll();
       if (st == TlsLink::State::Ready) return onHandshakeDone();
@@ -952,7 +1005,11 @@ void pump() {
         return goIdle(linkErrorText(link.lastError()) + F(" · ") + ipText(currentIp) + F(" (") +
                       currentSrc + ')');
       }
-      if (reached(phaseDeadline)) goIdle(F("Telegram no completó la conexión segura"));
+      if (reached(phaseDeadline)) {
+        slower();
+        goIdle(String(st == TlsLink::State::Connecting ? F("Sin respuesta TCP de ") : F("Conexión segura incompleta con ")) +
+               ipText(currentIp) + F(" (") + currentSrc + ')');
+      }
       return;
     }
 
@@ -967,6 +1024,7 @@ void pump() {
         out = String();
         phase = Phase::Waiting;
       } else if (reached(phaseDeadline)) {
+        slower();
         goIdle(F("No se pudo enviar a Telegram"));
       }
       return;
@@ -994,7 +1052,10 @@ void pump() {
       if (r < 0) return goIdle(F("Respuesta de Telegram no válida"));
       if (r == 0) {
         if (st != TlsLink::State::Ready) return goIdle(linkErrorText(link.lastError()));
-        if (reached(phaseDeadline)) goIdle(F("Sin respuesta de Telegram"));
+        if (reached(phaseDeadline)) {
+          slower();
+          goIdle(F("Sin respuesta de Telegram"));
+        }
         return;
       }
       Req type = inFlight;
@@ -1109,6 +1170,7 @@ void describe(JsonObject o) {
   o["records"] = smallRecords == 1 ? 2048 : smallRecords == 0 ? 16384 : 0;
   o["ip"] = ipText(currentIp);
   o["silentSec"] = downMs / 1000;
+  o["slow"] = slow;
   o["safetyRestarts"] = safetyRestarts;
   o["ipSource"] = currentSrc;
 }

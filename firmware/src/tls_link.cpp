@@ -28,27 +28,41 @@ bool TlsLink::open(TcpTransport& tcp, const char* host, uint32_t ip, uint16_t po
                    unsigned char* buf, size_t len, time_t now) {
   close();
   tcp_ = &tcp;
+  host_ = host;
+  buf_ = buf;
+  bufLen_ = len;
+  now_ = now;
   error_ = 0;
   resumed_ = mfln_ = false;
-  if (!tcp.connect(ip, port)) {
+  if (!tcp.begin(ip, port)) {
     fail(ERR_TCP_CONNECT);
     return false;
   }
-  // Certificate dates are checked against this clock (days since year 0, seconds of the day).
-  br_x509_minimal_set_time(xc_, static_cast<uint32_t>(now / 86400) + 719528,
-                           static_cast<uint32_t>(now % 86400));
-  br_ssl_engine_set_buffer(&sc_->eng, buf, len, 0);
-  if (haveSession_) br_ssl_engine_set_session_parameters(&sc_->eng, &session_);
-  if (!br_ssl_client_reset(sc_, host, haveSession_ ? 1 : 0)) {
-    fail(br_ssl_engine_last_error(&sc_->eng));
-    return false;
-  }
-  state_ = State::Handshake;
-  poll();  // sends the ClientHello right away
+  state_ = State::Connecting;
+  poll();
   return state_ != State::Failed;
 }
 
+void TlsLink::startHandshake() {
+  // Certificate dates are checked against this clock (days since year 0, seconds of the day).
+  br_x509_minimal_set_time(xc_, static_cast<uint32_t>(now_ / 86400) + 719528,
+                           static_cast<uint32_t>(now_ % 86400));
+  br_ssl_engine_set_buffer(&sc_->eng, buf_, bufLen_, 0);
+  if (haveSession_) br_ssl_engine_set_session_parameters(&sc_->eng, &session_);
+  if (!br_ssl_client_reset(sc_, host_, haveSession_ ? 1 : 0)) {
+    fail(br_ssl_engine_last_error(&sc_->eng));
+    return;
+  }
+  state_ = State::Handshake;
+}
+
 TlsLink::State TlsLink::poll() {
+  if (state_ == State::Connecting) {
+    int8_t c = tcp_->connectStatus();
+    if (c < 0) fail(ERR_TCP_CONNECT);
+    if (c <= 0) return state_;
+    startHandshake();  // sends the ClientHello below
+  }
   if (state_ != State::Handshake && state_ != State::Ready) return state_;
   br_ssl_engine_context* eng = &sc_->eng;
 
@@ -148,8 +162,7 @@ size_t TlsLink::read(uint8_t* out, size_t len) {
 
 void TlsLink::close() {
   if (tcp_) tcp_->stop();
-  if (state_ == State::Handshake || state_ == State::Ready) state_ = State::Closed;
-  if (state_ == State::Failed) state_ = State::Closed;
+  state_ = State::Closed;
 }
 
 void TlsLink::fail(int err) {

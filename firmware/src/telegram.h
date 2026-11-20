@@ -8,7 +8,8 @@
 // The connection (tls_link.h) is kept open between requests and driven without blocking, so the
 // web server, the timer and the schedules keep running while the bot waits for messages. Its
 // memory is reserved once at boot. A dead connection (network change, VPN, hotspot without
-// data) is detected within POLL_SEC + 8 s and retried every 1 to 20 s until it comes back.
+// data) is detected by TCP keep-alive or within POLL_SEC + 10 s, and retried every 1 to 20 s
+// until it comes back. On slow links the timeouts stretch by themselves.
 //
 // A watchdog covers whatever cause is left: when the Wi-Fi is up but Telegram has not answered
 // for 5 min, the bot starts over; at 10 min (and every 30 min after) the Wi-Fi is rejoined; at
@@ -22,10 +23,12 @@
 namespace telegram {
 
 #ifndef TELEGRAM_POLL_SEC
-#define TELEGRAM_POLL_SEC 20
+#define TELEGRAM_POLL_SEC 45
 #endif
-constexpr uint16_t POLL_SEC = TELEGRAM_POLL_SEC;  // long-poll length: worst-case notification delay
-constexpr uint32_t MAX_AGE_SEC = 120;  // older commands (sent while offline) are not executed
+// Long-poll length. Longer polls use less mobile data (about 0.9 kB each: ~50 MB a month at
+// 45 s) but delay notifications (not command replies) by up to this long.
+constexpr uint16_t POLL_SEC = TELEGRAM_POLL_SEC;
+constexpr uint32_t MAX_AGE_SEC = 300;  // older commands (sent while offline) are not executed
 
 void begin();
 void loop();
