@@ -28,11 +28,17 @@ if [ ! -f $OUT/ca.pem ]; then
     -days 30 -extfile $OUT/ext.cnf -out $OUT/server.pem 2>/dev/null
   python3 -W ignore ../../scripts/gen_trust_anchors.py $OUT/test_ca.h TELEGRAM_TA $OUT/ca.pem
 fi
+# A carrier's top-up portal: self-signed, not trusted by the bot
+if [ ! -f $OUT/portal.pem ]; then
+  openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=recargas.example" \
+    -keyout $OUT/portal.key -out $OUT/portal.pem 2>/dev/null
+fi
 
 g++ -std=gnu++17 -O1 -g -Wall -Wno-unused-function \
   -DARDUINO=10800 -DARDUINOJSON_ENABLE_PROGMEM=0 -DARDUINOJSON_ENABLE_ARDUINO_STREAM=0 \
   -DARDUINOJSON_ENABLE_ARDUINO_PRINT=0 -DFW_VERSION='"host-test"' -DTELEGRAM_POLL_SEC=4 \
   -DTELEGRAM_TEST_ANCHORS='"../hosttest/build/test_ca.h"' \
+  -DTELEGRAM_TEST_BUILTIN_IP=0x0500007f \
   -Imock -I$BEARSSL/inc -I$JSON \
   harness.cpp ../src/telegram.cpp ../src/tls_link.cpp $OUT/libbearssl.a -o $OUT/harness
 echo "built $OUT/harness"

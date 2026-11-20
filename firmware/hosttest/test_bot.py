@@ -38,18 +38,37 @@ class FakeTelegram:
         self.stall_next = 0        # send half of the next N responses, then go silent
         self.connections = 0
         self.methods = {}
-        self.server = None
+        self.servers = {}
         self.port = None
+        self.portal = None
         self.zombies = []
         self.tasks = []
 
-    async def start(self, port=0):
-        self.server = await asyncio.start_server(self.handle, "127.0.0.1", port or self.port, reuse_address=True)
-        self.port = self.server.sockets[0].getsockname()[1]
+    async def start(self, host="127.0.0.1"):
+        srv = await asyncio.start_server(self.handle, host, self.port or 0, reuse_address=True)
+        self.port = srv.sockets[0].getsockname()[1]
+        self.servers[host] = srv
 
-    async def stop_listening(self):  # new connections are refused (RST)
-        self.server.close()
-        await self.server.wait_closed()
+    async def stop_listening(self, host="127.0.0.1"):  # new connections are refused (RST)
+        srv = self.servers.pop(host)
+        srv.close()
+        await srv.wait_closed()
+
+    async def start_portal(self, host="127.0.0.2"):
+        """A carrier's top-up portal: answers HTTPS with its own certificate."""
+        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ctx.load_cert_chain(os.path.join(BUILD, "portal.pem"), os.path.join(BUILD, "portal.key"))
+
+        async def page(reader, writer):
+            try:
+                await writer.start_tls(ctx)
+                await reader.readuntil(b"\r\n\r\n")
+                writer.write(b"HTTP/1.1 302 Found\r\nLocation: http://recargas.example/\r\nContent-Length: 0\r\n\r\n")
+                await writer.drain()
+            except Exception:
+                pass
+            writer.close()
+        self.portal = await asyncio.start_server(page, host, self.port, reuse_address=True)
 
     def blackhole(self):  # open connections stop answering, without closing them
         self.epoch += 1
@@ -252,6 +271,37 @@ async def main():
     d = await command(tg, "/estado", "Apagado", 60)
     check("sin internet 60 s (conexiones colgadas): vuelve", d is not None,
           "respuesta %.1f s después de volver internet" % (d or -1))
+
+    # 5b. Phone out of credit: no Internet, and the carrier's DNS answers every name with its
+    # top-up portal. After the top-up, the DNS answer stays wrong for a while (cache, TTL).
+    await tg.start_portal()
+    tg.blackhole()
+    await tg.stop_listening()
+    await dev.cmd("dns 127.0.0.2")
+    await asyncio.sleep(90)
+    await tg.start()  # credit topped up: Telegram reachable again, DNS still says "portal"
+    d = await command(tg, "/estado", "Apagado", 60)
+    check("sin saldo + DNS del portal en caché: vuelve tras recargar", d is not None,
+          "respuesta %.1f s después de recargar" % (d or -1))
+    await dev.cmd("dns 127.0.0.1")
+
+    # 5c. Telegram moves to a new address: the old one stops answering, DNS gives the new one
+    tg.blackhole()
+    await tg.stop_listening()
+    await tg.start("127.0.0.3")
+    await dev.cmd("dns 127.0.0.3")
+    d = await command(tg, "/estado", "Apagado", 60)
+    check("Telegram cambia de dirección: la encuentra por DNS", d is not None, "%.1f s" % (d or -1))
+    check("guarda la dirección nueva como verificada", "EVENT saved tgIp=127.0.0.3" in dev.events)
+    await tg.start()
+    await dev.cmd("dns 127.0.0.1")
+
+    # 5d. DNS completely down but the internet works: the verified address is enough
+    await dev.cmd("dns fail")
+    tg.blackhole()
+    d = await command(tg, "/estado", "Apagado", DEADLINE + 25)
+    check("DNS caído: usa la dirección verificada", d is not None, "%.1f s" % (d or -1))
+    await dev.cmd("dns 127.0.0.1")
 
     # 6. Wi-Fi lost and back
     await dev.cmd("wifi 0")

@@ -1,4 +1,4 @@
-// TCP transport of the Telegram bot on the ESP8266 (lwIP through WiFiClient).
+// Network glue of the Telegram bot on the ESP8266: TCP through lwIP (WiFiClient) and DNS.
 #ifdef ARDUINO_ARCH_ESP8266
 
 #include <ESP8266WiFi.h>
@@ -11,21 +11,10 @@ constexpr uint32_t CONNECT_TIMEOUT_MS = 3000;
 
 class EspTcp : public TcpTransport {
  public:
-  bool connect(const char* host, uint16_t port) override {
+  bool connect(uint32_t ip, uint16_t port) override {
     stop();
-    IPAddress ip;
-    if (WiFi.hostByName(host, ip, DNS_TIMEOUT_MS) == 1 && ip.isSet()) {
-      lastIp_ = ip;  // reused when DNS fails (for example right after a network change)
-    } else if (lastIp_.isSet()) {
-      ip = lastIp_;
-    } else {
-      return false;
-    }
     client_.setTimeout(CONNECT_TIMEOUT_MS);
-    if (!client_.connect(ip, port)) {
-      lastIp_ = IPAddress();  // maybe stale: look it up again next time
-      return false;
-    }
+    if (!client_.connect(IPAddress(ip), port)) return false;
     client_.setNoDelay(true);
     client_.setSync(false);  // write() returns once lwIP has the data; it never waits for ACKs
     // Probes after 15 s of silence: keeps the mobile NAT entry alive during the long poll and
@@ -51,12 +40,21 @@ class EspTcp : public TcpTransport {
 
  private:
   WiFiClient client_;
-  IPAddress lastIp_;
 };
 
 EspTcp tcp;
 }  // namespace
 
 TcpTransport& telegramTransport() { return tcp; }
+
+// lwIP keeps answers in its cache for as long as their TTL says, up to a week. A carrier that
+// answers with its top-up portal while the line has no credit can therefore leave a wrong
+// address in the cache well after the top-up: the caller never relies on this answer alone.
+bool telegramResolve(const char* host, uint32_t& ip) {
+  IPAddress a;
+  if (WiFi.hostByName(host, a, DNS_TIMEOUT_MS) != 1 || !a.isSet() || !a.isV4()) return false;
+  ip = a.v4();
+  return true;
+}
 
 #endif

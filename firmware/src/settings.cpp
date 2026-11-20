@@ -66,6 +66,7 @@ void load() {
   copyStr(settings.ntpServer, sizeof(settings.ntpServer), doc["ntp"] | "pool.ntp.org");
   copyStr(settings.tgToken, sizeof(settings.tgToken), doc["tgToken"] | "");
   settings.tgNotify = doc["tgNotify"] | true;
+  settings.tgIp = doc["tgIp"] | 0UL;
   settings.tgUserCount = 0;
   for (JsonVariant u : doc["tgUsers"].as<JsonArray>()) {
     int64_t id = u.as<int64_t>();
@@ -107,6 +108,7 @@ bool save() {
   doc["powerOn"] = static_cast<uint8_t>(settings.powerOn);
   doc["tgToken"] = settings.tgToken;
   doc["tgNotify"] = settings.tgNotify;
+  doc["tgIp"] = settings.tgIp;
   JsonArray tu = doc["tgUsers"].to<JsonArray>();
   for (uint8_t i = 0; i < settings.tgUserCount; i++) tu.add(settings.tgUsers[i]);
   JsonObject c = doc["cycle"].to<JsonObject>();

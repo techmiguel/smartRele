@@ -25,6 +25,7 @@ constexpr uint32_t MAX_AGE_SEC = 120;  // older commands (sent while offline) ar
 void begin();
 void loop();
 void reconfigure();  // after the token changes
+void reconnect();    // drops the connection and tries again at once (web button)
 
 // State for the web interface: "off" (no token), "waiting" (no network or clock yet),
 // "connecting", "online" or "error".

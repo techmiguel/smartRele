@@ -24,13 +24,13 @@ void TlsLink::init(br_ssl_client_context* sc, br_x509_minimal_context* xc,
   br_ssl_engine_set_versions(&sc_->eng, BR_TLS12, BR_TLS12);
 }
 
-bool TlsLink::open(TcpTransport& tcp, const char* host, uint16_t port, unsigned char* buf,
-                   size_t len, time_t now) {
+bool TlsLink::open(TcpTransport& tcp, const char* host, uint32_t ip, uint16_t port,
+                   unsigned char* buf, size_t len, time_t now) {
   close();
   tcp_ = &tcp;
   error_ = 0;
   resumed_ = mfln_ = false;
-  if (!tcp.connect(host, port)) {
+  if (!tcp.connect(ip, port)) {
     fail(ERR_TCP_CONNECT);
     return false;
   }

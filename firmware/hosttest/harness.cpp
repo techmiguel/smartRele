@@ -94,29 +94,51 @@ void requestRestart(uint32_t) {
 }  // namespace network
 
 namespace store {
-bool save() { return true; }
+bool save() {
+  static uint32_t savedIp = 0;
+  if (settings.tgIp != savedIp) {
+    savedIp = settings.tgIp;
+    printf("EVENT saved tgIp=%s\n", inet_ntoa(in_addr{settings.tgIp}));
+    fflush(stdout);
+  }
+  return true;
+}
 }  // namespace store
+
+// ---------------------------------------------------------------- DNS, controlled by the test
+// "dns 127.0.0.2" sets the answer, "dns fail" makes lookups fail. TEST_REAL: the system resolver.
+static uint32_t dnsAnswer = htonl(INADDR_LOOPBACK);
+bool telegramResolve(const char* host, uint32_t& ip) {
+  if (getenv("TEST_REAL")) {
+    addrinfo hints{}, *res = nullptr;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    if (getaddrinfo(host, nullptr, &hints, &res) || !res) return false;
+    ip = ((sockaddr_in*)res->ai_addr)->sin_addr.s_addr;
+    freeaddrinfo(res);
+    return true;
+  }
+  if (!wifiUp || !dnsAnswer) return false;
+  ip = dnsAnswer;
+  return true;
+}
 
 // ---------------------------------------------------------------- TCP over POSIX sockets
 class HostTcp : public TcpTransport {
  public:
-  bool connect(const char* host, uint16_t port) override {
+  // Loopback addresses stand for Internet hosts: 127.0.0.1 is "Telegram", other 127.x
+  // addresses are what the test makes of them (a top-up portal, a new Telegram address...).
+  // All use TEST_PORT; with TEST_REAL, the real address and port.
+  bool connect(uint32_t ip, uint16_t port) override {
     stop();
     if (!wifiUp) return false;
     fd_ = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in a{};
     a.sin_family = AF_INET;
-    a.sin_port = htons(atoi(getenv("TEST_PORT")));
-    a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    if (getenv("TEST_REAL")) {  // the real host on the Internet
-      addrinfo hints{}, *res = nullptr;
-      hints.ai_family = AF_INET;
-      hints.ai_socktype = SOCK_STREAM;
-      if (getaddrinfo(host, nullptr, &hints, &res) || !res) return fail();
-      a.sin_addr = ((sockaddr_in*)res->ai_addr)->sin_addr;
-      a.sin_port = htons(port);
-      freeaddrinfo(res);
-    }
+    a.sin_port = getenv("TEST_REAL") ? htons(port) : htons(atoi(getenv("TEST_PORT")));
+    a.sin_addr.s_addr = ip;
+    printf("EVENT connect %s\n", inet_ntoa(a.sin_addr));
+    fflush(stdout);
     fcntl(fd_, F_SETFL, O_NONBLOCK);
     int r = ::connect(fd_, (sockaddr*)&a, sizeof(a));
     if (r < 0 && errno != EINPROGRESS) return fail();
@@ -204,6 +226,7 @@ int main() {
       *nl = 0;
       if (!strcmp(line, "quit")) return 0;
       if (!strncmp(line, "wifi ", 5)) wifiUp = line[5] == '1';
+      if (!strncmp(line, "dns ", 4)) dnsAnswer = strcmp(line + 4, "fail") ? inet_addr(line + 4) : 0;
       if (!strcmp(line, "stats")) {
         JsonDocument d;
         telegram::describe(d.to<JsonObject>());

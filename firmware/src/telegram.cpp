@@ -20,6 +20,7 @@
 #endif
 
 TcpTransport& telegramTransport();  // tcp_transport.cpp (or the host test harness)
+bool telegramResolve(const char* host, uint32_t& ip);  // DNS lookup, idem
 
 namespace {
 constexpr const char* HOST = "api.telegram.org";
@@ -244,18 +245,68 @@ void goIdle(const String& why) {
   Serial.printf("[tg] %s; retry in %lu s\n", why.c_str(), (unsigned long)(wait / 1000));
 }
 
+// Addresses of api.telegram.org. The DNS answer is not trusted on its own: while the phone has
+// no credit, many carriers answer every name with their top-up portal, and the ESP8266 keeps
+// that answer in its cache for as long as its TTL says (up to a week), well after the top-up.
+// Since the TLS certificate proves who is at the other end, any address can be tried safely:
+// the last one that passed the certificate check (saved in flash), the DNS answer, and the
+// addresses Telegram has used for years. The verified one is tried every other attempt.
+constexpr uint32_t ip4(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+  return a | b << 8 | c << 16 | static_cast<uint32_t>(d) << 24;  // network byte order
+}
+#ifdef TELEGRAM_TEST_BUILTIN_IP
+constexpr uint32_t KNOWN_IPS[] = {TELEGRAM_TEST_BUILTIN_IP};
+#else
+constexpr uint32_t KNOWN_IPS[] = {ip4(149, 154, 166, 110), ip4(149, 154, 167, 220)};
+#endif
+constexpr uint8_t KNOWN_COUNT = sizeof(KNOWN_IPS) / sizeof(KNOWN_IPS[0]);
+
+uint8_t attempt = 0;         // since the last successful connection
+uint32_t currentIp = 0;
+const char* currentSrc = "";
+
+String ipText(uint32_t ip) {
+  char b[16];
+  snprintf(b, sizeof(b), "%u.%u.%u.%u", ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24);
+  return String(b);
+}
+
+bool pickAddress(uint32_t& ip, const char*& src) {
+  const uint32_t verified = settings.tgIp;
+  for (uint8_t tries = 0; tries < 2 * (KNOWN_COUNT + 1); tries++) {
+    uint8_t a = attempt++;
+    if (verified && a % 2 == 0) {
+      ip = verified;
+      src = "verificada";
+      return true;
+    }
+    uint8_t alt = (verified ? a / 2 : a) % (KNOWN_COUNT + 1);
+    if (alt == 0) {
+      if (telegramResolve(HOST, ip) && ip != verified) {
+        src = "DNS";
+        return true;
+      }
+    } else if (KNOWN_IPS[alt - 1] != verified) {
+      ip = KNOWN_IPS[alt - 1];
+      src = "conocida";
+      return true;
+    }
+  }
+  return false;
+}
+
 void startConnect() {
+  if (!pickAddress(currentIp, currentSrc)) return goIdle(F("Sin dirección para api.telegram.org"));
   // Small records first; the full-size buffer only if the server does not accept them.
   size_t len = smallRecords == 0 ? iobufSize : SMALL_BUF;
   if (len > iobufSize) len = iobufSize;
   usedLen = len;
   connects++;
   uint32_t t = millis();
-  if (!link.open(telegramTransport(), HOST, 443, iobuf, len, time(nullptr))) {
-    goIdle(linkErrorText(link.lastError()));
-    return;
-  }
-  Serial.printf("[tg] TCP connected in %lu ms\n", (unsigned long)(millis() - t));
+  if (!link.open(telegramTransport(), HOST, currentIp, 443, iobuf, len, time(nullptr)))
+    return goIdle(linkErrorText(link.lastError()) + F(" · ") + ipText(currentIp) + F(" (") + currentSrc + ')');
+  Serial.printf("[tg] TCP connected to %s (%s) in %lu ms\n", ipText(currentIp).c_str(), currentSrc,
+                (unsigned long)(millis() - t));
   phase = Phase::Handshake;
   phaseDeadline = millis() + HANDSHAKE_TIMEOUT_MS;
 }
@@ -267,6 +318,13 @@ void reconnectNow() {
 }
 
 void onHandshakeDone() {
+  // The certificate is valid: this address is really api.telegram.org.
+  attempt = 0;
+  if (settings.tgIp != currentIp) {
+    settings.tgIp = currentIp;
+    store::save();
+    Serial.printf("[tg] verified address %s saved\n", ipText(currentIp).c_str());
+  }
   bool small = link.smallRecords();
   Serial.printf("[tg] TLS ready (%s records%s), heap %u\n", small ? "2 kB" : "16 kB",
                 link.resumed() ? ", resumed" : "", ESP.getFreeHeap());
@@ -487,6 +545,11 @@ String diagText() {
   t += ESP.getResetReason();
   t += F(")\nConexión con Telegram activa hace ");
   t += fmtDur((millis() - linkUpAt) / 1000);
+  t += F("\nServidor: ");
+  t += ipText(currentIp);
+  t += F(" (");
+  t += currentSrc;
+  t += ')';
   t += F("\nConexiones: ");
   t += connects;
   t += F(" · cortes: ");
@@ -787,7 +850,8 @@ void pump() {
       if (st == TlsLink::State::Ready) return onHandshakeDone();
       if (st == TlsLink::State::Failed) {
         if (retryWithFullBuffer(link.lastError())) return;
-        return goIdle(linkErrorText(link.lastError()));
+        return goIdle(linkErrorText(link.lastError()) + F(" · ") + ipText(currentIp) + F(" (") +
+                      currentSrc + ')');
       }
       if (reached(phaseDeadline)) goIdle(F("Telegram no completó la conexión segura"));
       return;
@@ -872,6 +936,16 @@ void reconfigure() {
   if (settings.tgToken[0]) allocateTls();
 }
 
+void reconnect() {
+  link.close();
+  phase = Phase::Idle;
+  inFlight = Req::None;
+  backoffStep = 0;
+  attempt = 0;
+  retryAt = millis();
+  Serial.println(F("[tg] reconnect requested"));
+}
+
 void loop() {
   if (!settings.tgToken[0]) {
     if (phase != Phase::Idle) reconfigure();
@@ -924,6 +998,8 @@ void describe(JsonObject o) {
   o["failures"] = failures;
   o["lastOk"] = everOk ? static_cast<int32_t>((millis() - lastOkAt) / 1000) : -1;
   o["records"] = smallRecords == 1 ? 2048 : smallRecords == 0 ? 16384 : 0;
+  o["ip"] = ipText(currentIp);
+  o["ipSource"] = currentSrc;
 }
 
 bool validToken(const char* t) {

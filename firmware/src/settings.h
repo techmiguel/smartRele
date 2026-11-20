@@ -38,6 +38,7 @@ struct Settings {
   int64_t tgUsers[MAX_TG_USERS] = {};  // Telegram user IDs allowed to control the relay
   uint8_t tgUserCount = 0;
   bool tgNotify = true;      // notify state changes not made from Telegram
+  uint32_t tgIp = 0;         // last address of api.telegram.org with a valid certificate
   PowerOnMode powerOn = PowerOnMode::Off;
   CycleConfig cycle;
   Schedule schedules[MAX_SCHEDULES];

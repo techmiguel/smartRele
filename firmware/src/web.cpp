@@ -392,6 +392,11 @@ void handleWifiSet() {
   sendOk(F("Saved. Restarting"));
 }
 
+void handleTelegramReconnect() {
+  telegram::reconnect();
+  sendOk(F("Reconnecting"));
+}
+
 void handleReboot() {
   network::requestRestart();
   sendOk(F("Restarting"));
@@ -439,6 +444,7 @@ void begin() {
   server.on(F("/api/time"), HTTP_POST, guarded(handleTime));
   server.on(F("/api/wifi/scan"), HTTP_GET, guarded(handleWifiScan));
   server.on(F("/api/wifi"), HTTP_POST, guarded(handleWifiSet));
+  server.on(F("/api/telegram/reconnect"), HTTP_POST, guarded(handleTelegramReconnect));
   server.on(F("/api/reboot"), HTTP_POST, guarded(handleReboot));
   server.on(F("/api/factory-reset"), HTTP_POST, guarded(handleFactoryReset));
   server.onNotFound(handleNotFound);

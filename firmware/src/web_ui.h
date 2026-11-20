@@ -131,6 +131,7 @@ hr{border:0;border-top:1px solid var(--ln);margin:22px 0 4px}
 <input id="tgu" maxlength="80" inputmode="numeric" placeholder="IDs autorizados, separados por comas" style="margin-top:8px">
 <select id="tgn" style="margin-top:8px"><option value="1">Avisar de cambios: sí</option><option value="0">Avisar de cambios: no</option></select>
 <button class="btn ghost" onclick="saveTg()">Guardar Telegram</button>
+<button class="btn ghost" id="tgrc" onclick="api('POST','/api/telegram/reconnect',null,'Reconectando…')">Reconectar Telegram</button>
 <button class="btn ghost" id="tgdel" onclick="if(confirm('¿Quitar el bot de Telegram?'))api('POST','/api/config',{tgToken:''},'Bot quitado').then(loadCfg)">Quitar bot</button>
 <div class="foot"><span id="fw"></span><span><a href="/update">Actualizar firmware</a> · <button onclick="if(confirm('¿Reiniciar el dispositivo?'))api('POST','/api/reboot',null,'Reiniciando…')">Reiniciar</button></span></div>
 </section>
@@ -165,6 +166,7 @@ function render(){
  $('fw').textContent='Firmware '+st.sys.fw+' · '+st.host+'.local';
  const g=st.telegram;$('tgst').textContent={off:'Desactivado',waiting:'Esperando conexión a internet',connecting:'Conectando…',
   online:'En línea'+(g.bot?' · @'+g.bot:''),error:g.error}[g.state]||'';
+ if(g.state=='connecting'&&g.lastFailure)$('tgst').textContent+=' · último corte: '+g.lastFailure;
 }
 async function refresh(){
  try{const r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw 0;st=await r.json();t0=Date.now();lost=false}catch(e){lost=true}
@@ -196,7 +198,7 @@ async function loadCfg(){try{const c=await(await fetch('/api/config')).json();
  $('cname').value=c.name;$('cpo').value=c.powerOn;if(!$('ws').value)$('ws').value=c.ssid;$('cap').value=$('cap').dataset.v=c.apSsid;
  $('cpw').placeholder=c.auth?'Sin cambios':'Sin contraseña (recomendado)';
  $('tgt').placeholder=c.tgToken?'Token: sin cambios':'Token del bot (de @BotFather)';$('tgu').value=c.tgUsers;$('tgn').value=c.tgNotify?1:0;
- $('tgdel').style.display=c.tgToken?'block':'none'}catch(e){}}
+ $('tgdel').style.display=$('tgrc').style.display=c.tgToken?'block':'none'}catch(e){}}
 function saveTg(){const t=$('tgt').value.trim(),u=$('tgu').value.trim();
  if(t&&!/^\d+:[\w-]{30,}$/.test(t))return toast('El token tiene la forma 123456:ABC…');
  if(u&&!/^\d+([ ,;]+\d+)*$/.test(u))return toast('IDs: solo números separados por comas');

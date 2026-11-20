@@ -1,6 +1,6 @@
 # SmartRele firmware · rele-esp12f
 
-Firmware v1.4.1 for the rele-esp12f board (ESP-12F / ESP8266). The relay is controlled over Wi-Fi from a built-in web interface (in Spanish) or through a JSON REST API, and from anywhere on the Internet through an optional **Telegram bot**:
+Firmware v1.4.2 for the rele-esp12f board (ESP-12F / ESP8266). The relay is controlled over Wi-Fi from a built-in web interface (in Spanish) or through a JSON REST API, and from anywhere on the Internet through an optional **Telegram bot**:
 
 - **Manual on / off**, with the time the output has been on in the current ON period.
 - **State-change timer**: after a delay (1 s to 7 days) it turns the relay on, off or toggles it.
@@ -216,17 +216,20 @@ On a phone hotspot the path to the Internet changes often: mobile data drops, th
 | Connection dies silently (VPN switched on/off, network change) | Each long poll must be answered within 28 s (20 s poll + 8 s margin); TCP keep-alive probes after 15 s of silence also keep the mobile NAT entry open | ≤ 30 s |
 | No Internet (connections refused or hanging) | Retries after 1, 2, 5, 10 and then every 20 s | ≤ 20 s after the Internet returns |
 | Wi-Fi lost | Reconnects at once when the Wi-Fi comes back | ~2 s |
+| Phone out of credit: the carrier's DNS answers with its top-up portal, and the wrong answer stays in the DNS cache after the top-up | Does not depend on DNS (see below) | ≤ 20 s after the top-up |
 | Telegram errors (502, 429), responses cut halfway | Drops the connection and retries | seconds |
 
 Messages that were being sent when the connection dropped are sent again after reconnecting, and every command is answered once.
 
+**Addresses.** While a prepaid line has no credit, many carriers answer every DNS query with the address of their top-up portal, and the ESP8266 keeps that answer cached for as long as its TTL says (lwIP allows up to a week), well after the top-up. Because the TLS certificate proves who is at the other end, the bot does not need DNS to be right: it tries, in turn, the **last address that passed the certificate check** (saved in flash, tried every other attempt), the DNS answer, and the addresses Telegram has used for years (149.154.166.110 and 149.154.167.220). A wrong address only fails the certificate check; it can never be mistaken for Telegram.
+
 The TLS memory (BearSSL contexts and a 16.7 kB buffer, about 23 kB, plus a 6.2 kB stack for the cryptography) is **reserved once at boot** and reused by every connection. Earlier builds allocated it on each reconnection, and after a few network changes the heap was too fragmented to find 16.7 kB in one piece again: the bot went silent until the relay was restarted. If the server accepts 2 kB TLS records (Max Fragment Length), the buffer is reduced to 2.4 kB after the first connection. The connection is driven without blocking: the web page, the timer and the schedules keep running during the handshake and while the bot waits for messages; only the DNS lookup and the TCP connect (3 s limit each) wait.
 
-`/diagnostico` (or `GET /api/status` → `telegram`) shows the time since boot, how long the current connection has lasted, the number of connections and drops, the last drop reason and the free memory. *Ajustes → Telegram* only shows an error when Telegram has been unreachable for more than a minute.
+`/diagnostico` (or `GET /api/status` → `telegram`) shows the time since boot, how long the current connection has lasted, the server address in use and where it came from, the number of connections and drops, the last drop reason and the free memory. *Ajustes → Telegram* only shows an error when Telegram has been unreachable for more than a minute.
 
 ### Host tests
 
-`hosttest/` runs the bot code (`telegram.cpp`, `tls_link.cpp`) on a PC, with BearSSL compiled from the sources shipped with the ESP8266 core, against a fake Bot API server over real TLS that injects the faults above: silent connection death, refused and hanging connections, Wi-Fi loss, 502 errors, responses cut halfway, `Connection: close`, chunked responses, oversized messages, plus hundreds of reconnections to check that memory stays flat.
+`hosttest/` runs the bot code (`telegram.cpp`, `tls_link.cpp`) on a PC, with BearSSL compiled from the sources shipped with the ESP8266 core, against a fake Bot API server over real TLS that injects the faults above: silent connection death, refused and hanging connections, a phone out of credit whose DNS points at a top-up portal, Telegram changing address, DNS down, Wi-Fi loss, 502 errors, responses cut halfway, `Connection: close`, chunked responses, oversized messages, plus hundreds of reconnections to check that memory stays flat.
 
 ```bash
 pio run -e esp12f          # once, to fetch the core and ArduinoJson
@@ -263,6 +266,7 @@ curl --digest -u admin:PASSWORD -X POST -H "Content-Type: application/json" -d '
 | `POST /api/time` | `{"epoch":1767225600}` | Sets the clock when there is no NTP |
 | `GET /api/wifi/scan` | — | Scans for networks (replies 202 while scanning) |
 | `POST /api/wifi` | `{"ssid":"...","pass":"..."}` | Stores the network and restarts |
+| `POST /api/telegram/reconnect` | — | Drops the Telegram connection and reconnects at once |
 | `POST /api/reboot` | — | Restarts |
 | `POST /api/factory-reset` | — | Erases all settings and restarts |
 
