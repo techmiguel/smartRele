@@ -182,7 +182,7 @@ class Device:
         env = dict(os.environ, TEST_PORT=str(port), TEST_TOKEN=TOKEN)
         self.log = open(os.path.join(BUILD, "device.log"), "w")
         self.proc = await asyncio.create_subprocess_exec(
-            os.path.join(BUILD, "harness"), env=env, stdin=asyncio.subprocess.PIPE,
+            os.path.join(BUILD, os.environ.get("HARNESS", "harness")), env=env, stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=self.log)
         self.events = []
         asyncio.get_running_loop().create_task(self.read())
@@ -378,4 +378,5 @@ async def main():
     return 1 if failed else 0
 
 
-sys.exit(asyncio.run(main()))
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))
