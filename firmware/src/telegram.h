@@ -1,0 +1,53 @@
+// Telegram bot: control the relay from anywhere on the Internet.
+//
+// The device opens an outgoing HTTPS connection to api.telegram.org and long-polls it for
+// messages. Nothing has to be reachable from the Internet, so it works behind CGNAT, a phone
+// hotspot or a router without port forwarding. Only the Telegram user IDs listed in the
+// settings can control the relay; anyone else is only told their own ID.
+//
+// The connection (tls_link.h) is kept open between requests and driven without blocking, so the
+// web server, the timer and the schedules keep running while the bot waits for messages. Its
+// memory is reserved once at boot. A dead connection (network change, VPN, hotspot without
+// data) is detected by TCP keep-alive or within POLL_SEC + 10 s, and retried every 1 to 20 s
+// until it comes back. On slow links the timeouts stretch by themselves.
+//
+// A watchdog covers whatever cause is left: when the Wi-Fi is up but Telegram has not answered
+// for 5 min, the bot starts over; at 10 min (and every 30 min after) the Wi-Fi is rejoined; at
+// 60 min (then 2, 4, 8, 16 h) the device restarts, but only if the relay is off and no timer,
+// routine or schedule is about to act, so the load is never switched by it.
+#pragma once
+
+#include <Arduino.h>
+#include <ArduinoJson.h>
+
+namespace telegram {
+
+#ifndef TELEGRAM_POLL_SEC
+#define TELEGRAM_POLL_SEC 45
+#endif
+// Long-poll length. Longer polls use less mobile data (about 0.9 kB each: ~50 MB a month at
+// 45 s) but delay notifications (not command replies) by up to this long.
+constexpr uint16_t POLL_SEC = TELEGRAM_POLL_SEC;
+constexpr uint32_t MAX_AGE_SEC = 300;  // older commands (sent while offline) are not executed
+
+void begin();
+void loop();
+// True if the previous run restarted the device as the watchdog's last resort (only ever done
+// with the relay off): the relay must then stay off at boot. Call before relay::begin().
+bool wasSafetyRestart();
+void reconfigure();  // after the token changes
+void reconnect();    // drops the connection and tries again at once (web button)
+
+// State for the web interface: "off" (no token), "waiting" (no network or clock yet),
+// "connecting", "online" or "error".
+const char* state();
+const String& botName();    // bot username, without "@", once known
+const String& lastError();  // last error, in Spanish
+void describe(JsonObject o);  // state and connection statistics for /api/status
+
+bool validToken(const char* token);
+// Parses "123, 456" into settings.tgUsers. Returns false if any entry is not a valid ID.
+bool parseUsers(const char* text);
+String usersText();  // "123, 456"
+
+}  // namespace telegram

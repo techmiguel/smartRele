@@ -90,6 +90,13 @@ bool captivePortal() { return apOn && !WiFi.isConnected(); }
 
 void requestRestart(uint32_t delayMs) { restartAt = (millis() + delayMs) | 1; }
 
+void reconnectWifi() {
+  if (!settings.wifiSsid[0]) return;
+  Serial.println(F("[wifi] reconnecting (requested by the Telegram watchdog)"));
+  WiFi.disconnect(false);
+  WiFi.begin(settings.wifiSsid, settings.wifiPass);
+}
+
 void begin() {
   pinMode(PIN_WIFI_LED, OUTPUT);
   digitalWrite(PIN_WIFI_LED, LOW);

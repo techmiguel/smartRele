@@ -15,7 +15,9 @@ constexpr uint32_t TIMER_MAX_SEC = 7UL * 24 * 3600;  // 7 days (fits in signed m
 constexpr uint32_t CYCLE_MIN_SEC = 5;                // protects the contact's electrical life
 constexpr uint32_t CYCLE_MAX_SEC = 24UL * 3600;
 
-void begin();  // drives the pin low as early as possible and applies the power-on mode
+// Drives the pin low as early as possible and applies the power-on mode. keepOff: the device
+// restarted itself with the relay off (Telegram watchdog), so it stays off whatever the mode.
+void begin(bool keepOff = false);
 void loop();
 
 bool isOn();

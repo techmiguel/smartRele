@@ -49,10 +49,14 @@ void beginPhase(bool on) {
 
 namespace relay {
 
-void begin() {
+void begin(bool keepOff) {
   digitalWrite(PIN_RELAY, LOW);
   pinMode(PIN_RELAY, OUTPUT);
   changedAt = millis();
+  if (keepOff) {
+    write(false, "boot");
+    return;
+  }
 
   if (settings.cycle.enabled && settings.cycle.onSec >= CYCLE_MIN_SEC &&
       settings.cycle.offSec >= CYCLE_MIN_SEC) {

@@ -22,5 +22,7 @@ bool apActive();
 bool captivePortal();       // true when requests must be redirected to the portal
 
 void requestRestart(uint32_t delayMs = 800);  // deferred restart (lets the web server reply)
+// Drops and rejoins the Wi-Fi network: new DHCP lease, DNS server and gateway, fresh lwIP state.
+void reconnectWifi();
 
 }  // namespace network
